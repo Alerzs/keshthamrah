@@ -1,0 +1,41 @@
+{% extends "marketplace/base.html" %}
+{% block title %}ثبت‌نام{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-xl px-4 py-10">
+  <form method="post" class="rounded-3xl bg-white p-6 shadow-sm">
+    {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+    <h1 class="text-2xl font-extrabold">ثبت‌نام</h1>
+    <p class="mt-2 text-sm text-slate-500">صاحب زمین نیرو رزرو می‌کند. سرویس دهنده حوزه و محل کارش را در پروفایل می‌گذارد.</p>
+    {% if form.non_field_errors %}
+      <div class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="mt-5 grid grid-cols-2 gap-3">
+      <label class="rounded-2xl border border-slate-200 p-4 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+        <input type="radio" name="role" value="farmer" class="sr-only" {% if form.role.value != 'worker' %}checked{% endif %}>
+        <span class="block font-bold">صاحب زمین هستم</span>
+        <span class="mt-1 block text-xs text-slate-500">درخواست نیرو برای مزرعه</span>
+      </label>
+      <label class="rounded-2xl border border-slate-200 p-4 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+        <input type="radio" name="role" value="worker" class="sr-only" {% if form.role.value == 'worker' %}checked{% endif %}>
+        <span class="block font-bold">سرویس دهنده هستم</span>
+        <span class="mt-1 block text-xs text-slate-500">ثبت حوزه کاری و شهرها</span>
+      </label>
+    </div>
+    {% for error in form.role.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+    <div class="mt-4 space-y-4">
+      {% for field in form %}
+        {% if field.name != 'role' %}
+          <div>
+            <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="w-full rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white">ساخت حساب</button>
+    </div>
+    <p class="mt-4 text-sm text-slate-500">حساب دارید؟ <a href="{% url 'login' %}" class="font-bold text-teal-700">ورود</a></p>
+  </form>
+</section>
+{% endblock %}

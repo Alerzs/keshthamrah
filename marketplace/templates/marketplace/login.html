@@ -1,0 +1,26 @@
+{% extends "marketplace/base.html" %}
+{% block title %}ورود{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-md px-4 py-10">
+  <form method="post" class="border border-line bg-sheet p-6">
+    {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+    <h1 class="text-2xl font-extrabold">ورود</h1>
+    <p class="mt-2 text-sm text-slate-500">با شماره موبایلی که ثبت کرده‌اید وارد شوید.</p>
+    {% if form.non_field_errors %}
+      <div class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="mt-5 space-y-4">
+      {% for field in form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="w-full bg-clay py-3 text-sm font-semibold text-white hover:bg-clay-dark">ورود</button>
+    </div>
+    <p class="mt-4 text-sm text-slate-500">حساب ندارید؟ <a class="font-bold text-teal-700" href="{% url 'register' %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">ثبت‌نام</a></p>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends "marketplace/base.html" %}
+{% block title %}پروفایل کاری{% endblock %}
+{% block content %}
+<section class="relative overflow-hidden border-b border-teal-100 bg-linear-to-b from-teal-50 to-slate-50">
+  <div class="pointer-events-none absolute -top-20 left-0 h-56 w-56 rounded-full bg-wheat/40 blur-3xl"></div>
+  <div class="relative mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8">
+    <div class="flex items-center gap-4">
+      <div class="grid h-14 w-14 place-items-center rounded-2xl text-lg font-extrabold text-white shadow-md {{ current_profile.avatar_class }}">{{ current_profile.initials }}</div>
+      <div>
+        <p class="text-xs font-bold text-teal-700">پروفایل کاری</p>
+        <h1 class="mt-1 text-2xl font-extrabold text-slate-900">{{ request.user.get_full_name }}</h1>
+        <p class="mt-1 max-w-xl text-sm leading-7 text-slate-600">صاحبان زمین فقط وقتی شما را می‌بینند که خدمت انتخابی جزو حوزه شما باشد و شهر زمین در فهرست محل کارتان آمده باشد.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mx-auto grid max-w-6xl items-start gap-6 px-4 py-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
+  <aside class="lg:sticky lg:top-24">
+    {% include "marketplace/partials/completion.html" with profile=current_profile %}
+  </aside>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <section class="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+      <div class="mb-5 flex items-center gap-3">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+        </span>
+        <div>
+          <h2 class="font-extrabold text-slate-900">تجربه و دستمزد</h2>
+          <p class="text-xs text-slate-500">این اطلاعات روی کارت پیشنهاد شما دیده می‌شود.</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label for="{{ form.bio.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ form.bio.label }}</label>
+          <div class="input-icon relative">
+            <span class="input-icon-mark pointer-events-none absolute right-0 top-0 grid h-12 w-11 place-items-center text-slate-400" aria-hidden="true">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+            </span>
+            {{ form.bio }}
+          </div>
+          {% if form.bio.help_text %}<p class="mt-1.5 text-xs leading-5 text-slate-400">{{ form.bio.help_text }}</p>{% endif %}
+          {% for error in form.bio.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="{{ form.experience_years.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ form.experience_years.label }}</label>
+            <div class="input-icon relative">
+              <span class="input-icon-mark pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400" aria-hidden="true">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+              </span>
+              {{ form.experience_years }}
+            </div>
+            {% for error in form.experience_years.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+          </div>
+          <div>
+            <label for="{{ form.daily_wage.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ form.daily_wage.label }}</label>
+            <div class="input-icon relative">
+              <span class="input-icon-mark pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400" aria-hidden="true">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6 10h.01M18 14h.01"/></svg>
+              </span>
+              {{ form.daily_wage }}
+            </div>
+            {% if form.daily_wage.help_text %}<p class="mt-1.5 text-xs leading-5 text-slate-400">{{ form.daily_wage.help_text }}</p>{% endif %}
+            {% for error in form.daily_wage.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+        <label class="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 has-[:checked]:border-teal-400 has-[:checked]:bg-teal-50">
+          <span class="flex items-start gap-3">
+            <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-teal-700 shadow-sm">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1"/><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 12v3"/></svg>
+            </span>
+            <span>
+              <span class="block text-sm font-bold text-slate-800">{{ form.is_active.label }}</span>
+              <span class="mt-1 block text-xs leading-5 text-slate-500">اگر خاموش باشد، در پیشنهادهای صاحبان زمین دیده نمی‌شوید.</span>
+            </span>
+          </span>
+          {{ form.is_active }}
+        </label>
+        {% for error in form.is_active.errors %}<p class="text-xs text-rose-600">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+      <div class="mb-5 flex items-center gap-3">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-700">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+        </span>
+        <div>
+          <h2 class="font-extrabold text-slate-900">حوزه کاری</h2>
+          <p class="text-xs text-slate-500">حداقل یک خدمت را انتخاب کنید.</p>
+        </div>
+      </div>
+      <div class="space-y-5">
+        {% for category in categories %}
+          <div>
+            <h3 class="flex items-center gap-2 text-xs font-bold text-slate-600">
+              {% include "marketplace/partials/category_icon.html" with box_class="h-7 w-7 rounded-lg" svg_class="h-3.5 w-3.5" %}
+              {{ category.name }}
+            </h3>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+              {% for service in category.services.all %}
+                <label class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm transition hover:border-teal-300 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+                  <input type="checkbox" name="services" value="{{ service.pk }}" class="peer sr-only" {% if service.pk in selected_services %}checked{% endif %}>
+                  <span class="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-slate-300 bg-white text-transparent peer-checked:border-teal-600 peer-checked:bg-teal-600 peer-checked:text-white">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.2 7.2a1 1 0 0 1-1.4 0L3.3 9.1a1 1 0 0 1 1.4-1.4l3.1 3.1 6.5-6.5a1 1 0 0 1 1.4 0z" clip-rule="evenodd"/></svg>
+                  </span>
+                  <span class="font-medium text-slate-700">{{ service.name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+      <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-700">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+          </span>
+          <div>
+            <h2 class="font-extrabold text-slate-900">شهرهای محل کار</h2>
+            <p class="text-xs text-slate-500">حداقل یک شهر را انتخاب کنید.</p>
+          </div>
+        </div>
+        <label class="w-full sm:w-56">
+          <span class="sr-only">جستجوی شهر</span>
+          <span class="input-icon relative block">
+            <span class="input-icon-mark pointer-events-none absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400" aria-hidden="true">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.5-3.5"/></svg>
+            </span>
+            <input id="city-filter" type="search" placeholder="جستجوی شهر" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100">
+          </span>
+        </label>
+      </div>
+      <div id="city-list" class="flex flex-wrap gap-2">
+        {% for city in cities %}
+          <label data-city="{{ city.name }}" class="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm transition hover:border-teal-300 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+            <input type="checkbox" name="cities" value="{{ city.pk }}" class="peer sr-only" {% if city.pk in selected_cities %}checked{% endif %}>
+            <span class="grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-transparent peer-checked:border-teal-600 peer-checked:bg-teal-600 peer-checked:text-white">
+              <svg class="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.2 7.2a1 1 0 0 1-1.4 0L3.3 9.1a1 1 0 0 1 1.4-1.4l3.1 3.1 6.5-6.5a1 1 0 0 1 1.4 0z" clip-rule="evenodd"/></svg>
+            </span>
+            {{ city.name }}
+          </label>
+        {% endfor %}
+      </div>
+      <p id="city-empty" class="mt-3 hidden text-sm text-slate-400">شهری با این نام پیدا نشد.</p>
+    </section>
+
+    <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
+      ذخیره پروفایل
+    </button>
+  </form>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+  (function () {
+    const input = document.getElementById('city-filter');
+    const empty = document.getElementById('city-empty');
+    if (!input) return;
+    input.addEventListener('input', () => {
+      const query = input.value.trim();
+      let visible = 0;
+      document.querySelectorAll('#city-list [data-city]').forEach((item) => {
+        const match = !query || item.dataset.city.includes(query);
+        item.classList.toggle('hidden', !match);
+        if (match) visible += 1;
+      });
+      empty.classList.toggle('hidden', visible !== 0);
+    });
+  })();
+</script>
+{% endblock %}

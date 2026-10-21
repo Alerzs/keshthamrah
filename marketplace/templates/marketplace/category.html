@@ -1,0 +1,33 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+{% block title %}{{ category.name }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 pt-10">
+  <a href="{% url 'services' %}" class="text-sm font-semibold text-clay hover:text-clay-dark">همه خدمات</a>
+  <h1 class="mt-2 text-4xl text-ink">{{ category.name }}</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">{{ category.description }}</p>
+  {% if current_profile.role == 'worker' %}
+    <p class="mt-3 text-sm leading-7 text-muted">ثبت درخواست این خدمات برای صاحبان زمین است.</p>
+    <a href="{% url 'worker_jobs' %}" class="mt-3 inline-flex text-sm font-semibold text-clay hover:text-clay-dark">تأیید درخواست‌های رسیده</a>
+  {% else %}
+    <a href="{% url 'workers' %}" class="mt-4 inline-flex text-sm font-semibold text-clay hover:text-clay-dark">دیدن سرویس‌دهندگان</a>
+  {% endif %}
+</section>
+<section class="mx-auto grid max-w-6xl gap-4 px-4 py-8">
+  {% for service in category.services.all %}
+    <article class="flex flex-col justify-between gap-4 border border-line bg-sheet p-5 sm:flex-row sm:items-center">
+      <div>
+        <h2 class="text-xl">{{ service.name }}</h2>
+        <p class="mt-1 text-sm leading-7 text-muted">{{ service.description }}</p>
+        <p class="mt-2 text-sm font-semibold text-soil">شروع از {{ service.base_price|toman }} در روز</p>
+      </div>
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <a href="{% url 'workers' %}?q={{ service.name|urlencode }}" class="rounded-xl border border-line px-4 py-3 text-center text-sm font-semibold text-ink hover:bg-paper">سرویس‌دهندگان</a>
+        {% if current_profile.role != 'worker' and current_profile.role != 'admin' %}
+          <a href="{{ service.get_absolute_url }}" class="rounded-2xl bg-teal-600 px-5 py-3 text-center text-sm font-bold text-white hover:bg-teal-700">انتخاب و ادامه</a>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}

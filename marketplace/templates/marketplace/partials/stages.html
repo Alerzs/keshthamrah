@@ -1,0 +1,11 @@
+<ol class="mt-4 grid gap-2 sm:grid-cols-4">
+  {% for stage in stages %}
+    <li class="rounded-xl px-3 py-2 text-xs font-semibold
+      {% if stage.state == 'done' %}bg-teal-50 text-teal-800
+      {% elif stage.state == 'current' %}bg-amber-50 text-amber-800
+      {% elif stage.state == 'muted' %}bg-slate-50 text-slate-300
+      {% else %}bg-slate-50 text-slate-400{% endif %}">
+      {{ stage.label }}
+    </li>
+  {% endfor %}
+</ol>

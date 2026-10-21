@@ -1,0 +1,42 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+{% block title %}رزرو {{ worker.user.get_full_name }}{% endblock %}
+{% block content %}
+<section class="border-b border-teal-100 bg-teal-50">
+  <div class="mx-auto max-w-6xl px-4 py-8">
+    <h1 class="text-2xl font-extrabold">تأیید رزرو</h1>
+    {% if farm_locked %}
+      <p class="mt-2 text-sm text-slate-600">شهر و آدرس زمین همان است که در پروفایل ثبت کرده‌اید.</p>
+    {% endif %}
+    <div class="mt-5">{% include "marketplace/partials/steps.html" with current=3 %}</div>
+  </div>
+</section>
+<section class="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-3">
+  <form method="post" class="space-y-4 rounded-3xl bg-white p-6 shadow-sm lg:col-span-2">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+      <div>
+        <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="w-full rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white hover:bg-teal-700">ثبت درخواست رزرو</button>
+    <p class="text-xs leading-6 text-slate-400">بعد از پذیرش سرویس دهنده، نام و شماره تماس او نمایش داده می‌شود. پایان کار و نظر را خودتان ثبت می‌کنید.</p>
+  </form>
+  <aside class="h-fit rounded-3xl bg-white p-6 shadow-sm">
+    <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="flex items-center gap-3 rounded-2xl outline-none hover:text-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600">
+      <div class="grid h-12 w-12 place-items-center rounded-2xl font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</div>
+      <div>
+        <h2 class="font-extrabold">{{ worker.user.get_full_name }}</h2>
+        <p class="text-xs text-slate-500">★ {{ worker.rating|floatformat:1|fa_digits }} · {{ worker.experience_years|fa_digits }} سال سابقه</p>
+      </div>
+    </a>
+    <p class="mt-4 text-sm font-bold text-teal-700">دستمزد روزانه {{ worker.daily_wage|toman }}</p>
+    <p class="mt-2 text-xs leading-6 text-slate-500">{{ worker.bio }}</p>
+  </aside>
+</section>
+{% endblock %}

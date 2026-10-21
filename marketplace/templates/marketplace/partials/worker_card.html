@@ -1,0 +1,53 @@
+{% load fa %}
+<article class="flex flex-col gap-4 border border-line bg-sheet p-5 transition hover:border-clay sm:flex-row sm:items-center">
+  <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="group flex min-w-0 flex-1 gap-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-clay">
+    <div class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</div>
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="font-bold text-ink group-hover:text-clay">{{ worker.user.get_full_name }}</h3>
+        {% if worker.is_verified %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-soil">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+            هویت تأیید شده
+          </span>
+        {% endif %}
+      </div>
+      <p class="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-muted">
+        {% if worker.review_count %}
+          <span class="inline-flex items-center gap-1 font-semibold text-clay">
+            <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.4 5.6 6 .6-4.5 4 1.3 5.9L12 16.8 6.8 19.3 8.1 13.4 3.6 9.4l6-.6L12 3.2z"/></svg>
+            {{ worker.rating|floatformat:1|fa_digits }}
+          </span>
+          <span>({{ worker.review_count|fa_digits }} نظر)</span>
+        {% else %}
+          تازه‌وارد
+        {% endif %}
+        <span> · {{ worker.experience_years|fa_digits }} سال سابقه</span>
+        <span> · {{ worker.jobs_done|fa_digits }} کار</span>
+      </p>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        {% for service in worker.services.all %}
+          {% if forloop.counter <= 3 %}
+            <span class="rounded-full border border-line bg-paper px-2.5 py-1 text-xs text-muted">{{ service.name }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <p class="mt-2 inline-flex items-center gap-1 text-xs text-muted">
+        <svg class="h-3.5 w-3.5 shrink-0 text-clay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 21s6-5.2 6-9a6 6 0 1 0-12 0c0 3.8 6 9 6 9z"/><circle cx="12" cy="12" r="2"/></svg>
+        محل کار:
+        {% for city in worker.cities.all %}{{ city.name }}{% if not forloop.last %}، {% endif %}{% endfor %}
+      </p>
+    </div>
+  </a>
+  <div class="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
+    <div class="text-sm font-extrabold text-soil">{{ worker.daily_wage|toman }}</div>
+    <div class="flex gap-2">
+      <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="rounded-xl border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-paper">پروفایل</a>
+      {% if request.user.is_authenticated and request.user.pk == worker.user.pk %}
+        <span class="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500">پروفایل شما</span>
+      {% elif worker.is_active and current_profile.role != 'worker' and current_profile.role != 'admin' %}
+        <a href="{% url 'book' worker.pk %}?{{ request.GET.urlencode }}" class="rounded-md bg-clay px-3 py-2 text-xs font-semibold text-white hover:bg-clay-dark">رزرو</a>
+      {% endif %}
+    </div>
+  </div>
+</article>

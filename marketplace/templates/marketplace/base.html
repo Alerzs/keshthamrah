@@ -1,0 +1,111 @@
+{% load static fa %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}خدمات جانبی کشاورزی{% endblock %} | کشت همراه</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌿%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/output.css' %}?v=13">
+  <style>
+    .password-field { position: relative; }
+    .password-field > input { padding-left: 2.75rem; }
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      left: 0.55rem;
+      z-index: 1;
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      place-items: center;
+      color: #64748b;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      transform: translateY(-50%);
+    }
+    .password-toggle:hover { color: #0f766e; }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-paper pb-20 font-sans text-ink antialiased lg:pb-0">
+  <a href="#content" class="sr-only focus:not-sr-only focus:absolute focus:right-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">رفتن به محتوا</a>
+  {% include "marketplace/partials/header.html" %}
+  {% if current_profile.role == 'farmer' and current_profile.completion_percent < 100 %}
+    <a href="{% url 'farmer_profile' %}" class="block bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+      پروفایل زمین {{ current_profile.completion_percent|fa_digits }}٪ کامل است. شهر و آدرس زمین را ثبت کنید.
+    </a>
+  {% elif current_profile.role == 'worker' and current_profile.completion_percent < 100 %}
+    <a href="{% url 'worker_profile' %}" class="block bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+      پروفایل کاری {{ current_profile.completion_percent|fa_digits }}٪ کامل است.
+    </a>
+  {% endif %}
+  {% if messages %}
+    <div class="mx-auto max-w-6xl px-4 pt-4">
+      {% for message in messages %}
+        <div class="mb-2 rounded-2xl px-4 py-3 text-sm {% if 'error' in message.tags %}bg-rose-50 text-rose-700{% elif 'warning' in message.tags %}bg-amber-50 text-amber-800{% elif 'info' in message.tags %}bg-sky-50 text-sky-800{% else %}bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <main id="content">
+    {% block content %}{% endblock %}
+  </main>
+  {% include "marketplace/partials/footer.html" %}
+  {% include "marketplace/partials/bottom_nav.html" %}
+  <script>
+    const menuBtn = document.getElementById('menu-btn');
+    const menu = document.getElementById('mobile-menu');
+    const accountBtn = document.getElementById('account-btn');
+    const accountPanel = document.getElementById('account-panel');
+
+    function setAccountOpen(open) {
+      if (!accountBtn || !accountPanel) return;
+      accountPanel.classList.toggle('hidden', !open);
+      accountBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    if (menuBtn && menu) {
+      menuBtn.addEventListener('click', () => {
+        menu.classList.toggle('hidden');
+        setAccountOpen(false);
+      });
+    }
+    if (accountBtn && accountPanel) {
+      accountBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const open = accountBtn.getAttribute('aria-expanded') !== 'true';
+        setAccountOpen(open);
+        if (open && menu) menu.classList.add('hidden');
+      });
+      document.addEventListener('click', (event) => {
+        if (!accountPanel.contains(event.target) && event.target !== accountBtn) setAccountOpen(false);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && accountBtn.getAttribute('aria-expanded') === 'true') {
+          setAccountOpen(false);
+          accountBtn.focus();
+        }
+      });
+    }
+
+    document.querySelectorAll('.password-toggle').forEach((button) => {
+      const input = button.parentElement.querySelector('input');
+      const openIcon = button.querySelector('.eye-open');
+      const closedIcon = button.querySelector('.eye-off');
+      button.addEventListener('click', () => {
+        const showing = input.type === 'password';
+        input.type = showing ? 'text' : 'password';
+        button.setAttribute('aria-pressed', showing ? 'true' : 'false');
+        button.setAttribute('aria-label', showing ? 'پنهان کردن رمز' : 'نمایش رمز');
+        openIcon.classList.toggle('hidden', showing);
+        closedIcon.classList.toggle('hidden', !showing);
+      });
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

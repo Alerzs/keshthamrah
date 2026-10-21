@@ -1,0 +1,89 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+{% block title %}پنل کارها{% endblock %}
+{% block content %}
+<section class="border-b border-teal-100 bg-teal-50">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-3 px-4 py-8">
+    <div>
+      <h1 class="text-2xl font-extrabold">پنل ادمین</h1>
+      <p class="mt-2 text-sm text-slate-600">صلاحیت درخواست‌های تازه‌ثبت‌شده را اینجا بررسی کنید. تا قبل از تأیید شما، درخواست برای سرویس دهنده و جزئیات این مرحله برای صاحب زمین دیده نمی‌شود.</p>
+    </div>
+    <a href="{% url 'admin_create_account' %}" class="rounded-xl bg-teal-600 px-4 py-2 text-sm font-bold text-white hover:bg-teal-700">افزودن حساب</a>
+  </div>
+</section>
+<section class="mx-auto max-w-6xl px-4 py-8">
+  <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+    {% for item in filters %}
+      <a href="{% if item.value %}?status={{ item.value }}{% else %}{% url 'admin_panel' %}{% endif %}" class="shrink-0 rounded-full px-4 py-2 text-xs font-semibold {% if selected == item.value %}bg-teal-600 text-white{% else %}bg-white text-slate-600 shadow-sm{% endif %}">
+        {{ item.label }} ({{ item.count|fa_digits }})
+      </a>
+    {% endfor %}
+  </div>
+  <p class="mt-4 text-xs text-slate-500">برای دیدن جزئیات، روی درخواست بزنید.</p>
+  <div class="mt-2 rounded-2xl border border-slate-200 bg-white">
+    {% for booking in page_obj %}
+      <details class="group border-b border-slate-100 last:border-b-0">
+        <summary class="cursor-pointer list-none px-3 py-2.5 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+          <span class="flex items-center gap-3">
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-bold">{{ booking.service.name }}</span>
+              <span class="mt-0.5 block truncate text-xs text-slate-500">
+                {{ booking.farmer.get_full_name }}
+                · {{ booking.worker.user.get_full_name }}
+                · {{ booking.city.name }}
+                · {{ booking.work_date|jalali }}
+              </span>
+            </span>
+            <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {{ booking.admin_status_classes }}">{{ booking.admin_status_label }}</span>
+            <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </summary>
+        <div class="border-t border-slate-100 bg-slate-50 px-3 py-3">
+          {% include "marketplace/partials/stages.html" with stages=booking.admin_progress_stages %}
+          <p class="mt-3 text-sm leading-7 text-slate-600">{{ booking.address }}{% if booking.land_area %} · {{ booking.land_area|fa_digits }} هکتار{% endif %}</p>
+          {% if booking.note %}<p class="text-sm text-slate-500">{{ booking.note }}</p>{% endif %}
+          <p class="mt-2 text-sm font-semibold text-teal-700">{{ booking.wage|toman }} در روز</p>
+          <p class="mt-2 text-xs text-slate-500">
+            صاحب زمین:
+            <a href="{% url 'farmer_public' booking.farmer.pk %}" class="font-semibold text-teal-800 hover:text-teal-700">{{ booking.farmer.get_full_name }}</a>
+            · <span dir="ltr">{{ booking.farmer.profile.phone|fa_digits }}</span>
+            · سرویس دهنده:
+            <a href="{% url 'worker_detail' booking.worker.pk %}" class="font-semibold text-teal-800 hover:text-teal-700">{{ booking.worker.user.get_full_name }}</a>
+            · <span dir="ltr">{{ booking.worker.user.profile.phone|fa_digits }}</span>
+          </p>
+          {% if booking.rejection_reason %}
+            <p class="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm leading-7 text-rose-800">علت رد: {{ booking.rejection_reason }}</p>
+          {% endif %}
+          {% if booking.confirmed_by %}
+            <p class="mt-2 text-xs text-slate-400">
+              {% if booking.admin_approved %}صلاحیت تأیید شد{% else %}صلاحیت رد شد{% endif %}
+              توسط {{ booking.confirmed_by.get_full_name }} در {{ booking.confirmed_at|jalali:"Y/m/d H:i" }}
+            </p>
+          {% endif %}
+          {% if booking.status == 'pending' and not booking.admin_approved %}
+            <div class="mt-3 flex flex-wrap items-end gap-2">
+              <form method="post" action="{% url 'admin_approve' booking.pk %}">
+                {% csrf_token %}
+                <button name="action" value="approve" class="rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">تأیید صلاحیت</button>
+              </form>
+              <form method="post" action="{% url 'admin_approve' booking.pk %}" class="flex min-w-[16rem] flex-1 flex-col gap-2 sm:flex-row sm:items-end">
+                {% csrf_token %}
+                <label class="min-w-0 flex-1 text-xs font-semibold text-slate-600">
+                  علت رد
+                  <textarea name="reason" required maxlength="500" rows="2" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800" placeholder="چرا این درخواست رد می‌شود؟"></textarea>
+                </label>
+                <button name="action" value="reject" class="rounded-xl border border-rose-200 px-4 py-2 text-xs font-semibold text-rose-600">رد صلاحیت</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+      </details>
+    {% empty %}
+      <div class="px-6 py-12 text-center">
+        <p class="font-bold">کاری در این مرحله نیست.</p>
+      </div>
+    {% endfor %}
+  </div>
+  {% include "marketplace/partials/pagination.html" %}
+</section>
+{% endblock %}

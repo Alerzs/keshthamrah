@@ -1,0 +1,97 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+{% block title %}افراد{% endblock %}
+{% block content %}
+<section class="border-b border-teal-100 bg-teal-50">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-3 px-4 py-8">
+    <div>
+      <h1 class="text-2xl font-extrabold">افراد</h1>
+      <p class="mt-2 text-sm text-slate-600">صاحبان زمین و سرویس‌دهندگان ثبت‌شده را اینجا ببینید.</p>
+    </div>
+    <a href="{% url 'admin_create_account' %}" class="rounded-xl bg-teal-600 px-4 py-2 text-sm font-bold text-white hover:bg-teal-700">افزودن حساب</a>
+  </div>
+</section>
+<section class="mx-auto max-w-6xl px-4 py-8">
+  <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+    <a href="{% url 'admin_people' %}?role=farmer{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="shrink-0 rounded-full px-4 py-2 text-xs font-semibold {% if selected == 'farmer' %}bg-teal-600 text-white{% else %}bg-white text-slate-600 shadow-sm{% endif %}">
+      صاحبان زمین ({{ farmer_count|fa_digits }})
+    </a>
+    <a href="{% url 'admin_people' %}?role=worker{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="shrink-0 rounded-full px-4 py-2 text-xs font-semibold {% if selected == 'worker' %}bg-teal-600 text-white{% else %}bg-white text-slate-600 shadow-sm{% endif %}">
+      سرویس‌دهندگان ({{ worker_count|fa_digits }})
+    </a>
+  </div>
+  <form method="get" class="mt-4 flex flex-wrap gap-2">
+    <input type="hidden" name="role" value="{{ selected }}">
+    <label class="sr-only" for="people-q">جستجوی نام یا شماره همراه</label>
+    <input id="people-q" type="search" name="q" value="{{ query }}" placeholder="نام یا شماره همراه" class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
+    <button type="submit" class="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700">جستجو</button>
+    {% if query %}
+      <a href="{% url 'admin_people' %}?role={{ selected }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">پاک کردن</a>
+    {% endif %}
+  </form>
+  <p class="mt-4 text-xs text-slate-500">برای دیدن جزئیات، روی نام بزنید.</p>
+  <div class="mt-2 rounded-2xl border border-slate-200 bg-white">
+    {% if selected == 'farmer' %}
+      {% for profile in page_obj %}
+        <details class="group border-b border-slate-100 last:border-b-0">
+          <summary class="cursor-pointer list-none px-3 py-2.5 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span class="flex items-center gap-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-bold text-white {{ profile.avatar_class }}">{{ profile.initials }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold">{{ profile.user.get_full_name }}</span>
+                <span class="mt-0.5 block truncate text-xs text-slate-500">
+                  <span dir="ltr">{{ profile.phone|fa_digits }}</span>
+                  · {% if profile.farm_city %}{{ profile.farm_city.name }}{% else %}شهر زمین ثبت نشده{% endif %}
+                </span>
+              </span>
+              <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">{{ profile.completion_percent|fa_digits }}٪</span>
+              <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </summary>
+          <div class="border-t border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-7 text-slate-600">
+            <p>{% if profile.farm_address %}{{ profile.farm_address }}{% else %}آدرس زمین هنوز ثبت نشده است.{% endif %}</p>
+            <a href="{% url 'farmer_public' profile.user.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
+          </div>
+        </details>
+      {% empty %}
+        <div class="px-6 py-12 text-center">
+          <p class="font-bold">{% if query %}کسی با این نام یا شماره پیدا نشد.{% else %}صاحب زمینی ثبت نشده است.{% endif %}</p>
+        </div>
+      {% endfor %}
+    {% else %}
+      {% for worker in page_obj %}
+        <details class="group border-b border-slate-100 last:border-b-0">
+          <summary class="cursor-pointer list-none px-3 py-2.5 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span class="flex items-center gap-3">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold">{{ worker.user.get_full_name }}</span>
+                <span class="mt-0.5 block truncate text-xs text-slate-500">
+                  <span dir="ltr">{{ worker.user.profile.phone|fa_digits }}</span>
+                  ·
+                  {% for city in worker.cities.all %}{{ city.name }}{% if not forloop.last %}، {% endif %}{% empty %}شهر محل کار ثبت نشده{% endfor %}
+                </span>
+              </span>
+              <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {% if worker.is_active %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if worker.is_active %}فعال{% else %}غیرفعال{% endif %}</span>
+              <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </summary>
+          <div class="border-t border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-7 text-slate-600">
+            <p>{{ worker.daily_wage|toman }} در روز · {{ worker.experience_years|fa_digits }} سال سابقه · {{ worker.jobs_done|fa_digits }} کار انجام‌شده</p>
+            <p class="mt-1">
+              {% for service in worker.services.all %}{{ service.name }}{% if not forloop.last %}، {% endif %}{% empty %}حوزه کاری ثبت نشده است.{% endfor %}
+            </p>
+            {% if worker.bio %}<p class="mt-1 text-slate-500">{{ worker.bio }}</p>{% endif %}
+            <a href="{% url 'worker_detail' worker.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
+          </div>
+        </details>
+      {% empty %}
+        <div class="px-6 py-12 text-center">
+          <p class="font-bold">{% if query %}کسی با این نام یا شماره پیدا نشد.{% else %}سرویس‌دهنده‌ای ثبت نشده است.{% endif %}</p>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+  {% include "marketplace/partials/pagination.html" %}
+</section>
+{% endblock %}

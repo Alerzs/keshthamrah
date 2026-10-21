@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+
+# Local environment. Copy .env.example to .env.
+.env
+
+# SQLite database, next to manage.py
+DB/*.sqlite3
+DB/*.sqlite3-journal
+DB/*.sqlite3-wal
+DB/*.sqlite3-shm
+
+# Collected static files
+staticfiles/
+media/
+
+# Node
+node_modules/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

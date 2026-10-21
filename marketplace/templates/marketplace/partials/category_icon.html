@@ -1,0 +1,45 @@
+<span class="grid place-items-center rounded-xl bg-teal-50 text-soil {{ box_class|default:'h-16 w-16' }}" aria-hidden="true">
+  {% if category.slug == 'planting' %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20.5V11"/>
+      <path d="M12 13.4c0-2.8-3-4.4-5.4-3.6 1 2.6 2.8 3.6 5.4 3.6z" fill="currentColor" stroke="none"/>
+      <path class="text-clay" d="M12 12.2c0-2.5 2.6-4.3 5-3.6-.9 2.4-2.6 3.6-5 3.6z" fill="currentColor" stroke="none"/>
+      <path d="M5.5 20.5h13"/>
+    </svg>
+  {% elif category.slug == 'irrigation' %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.2s5.4 6.4 5.4 9.6a5.4 5.4 0 0 1-10.8 0c0-3.2 5.4-9.6 5.4-9.6z"/>
+      <path class="text-clay" d="M9.2 13.2c.6 1.6 1.6 2.4 2.8 2.6" fill="none"/>
+    </svg>
+  {% elif category.slug == 'protection' %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 11h5.2v8.2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V11z"/>
+      <path d="M9.2 11V8.6h2.8V11"/>
+      <path d="M12 8.6h2.2"/>
+      <path class="text-clay" d="M14.2 7.2c1.5-1.4 3.2-.2 2.6 1.4"/>
+      <path class="text-clay" d="M16.2 5.4l.5-.8M17.6 6.3l.8-.1"/>
+    </svg>
+  {% elif category.slug == 'orchard' %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20.5v-6"/>
+      <path d="M12 14.6c-4 0-6.4-2.8-6.2-6C8.4 8.8 9.5 6.6 12 3.4c2.5 3.2 3.6 5.4 6.2 5.2-0.2 3.2-2.2 6-6.2 6z" fill="currentColor" stroke="none"/>
+      <circle class="text-clay" cx="10" cy="10.2" r="0.9" fill="currentColor" stroke="none"/>
+      <circle class="text-clay" cx="13.6" cy="9.2" r="0.9" fill="currentColor" stroke="none"/>
+      <path d="M8 20.5h8"/>
+    </svg>
+  {% elif category.slug == 'machinery' %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="7" cy="16.8" r="2.1"/>
+      <circle cx="16.8" cy="16.8" r="2.1"/>
+      <path d="M4.6 16.8H3.2v-3.2h5.2l2-3.6h4.2l2.1 3h2.1v3.8h-1.6"/>
+      <path d="M9.1 16.8h5.6"/>
+      <path class="text-clay" d="M8.8 10V7.6h2.6"/>
+    </svg>
+  {% else %}
+    <svg class="{{ svg_class|default:'h-7 w-7' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.8 4.2 8.2 12.2"/>
+      <path d="M8.2 12.2 5.6 15.6a2.1 2.1 0 0 0 3 3l3.2-3.4"/>
+      <path class="text-clay" d="M13.4 5.6 16.6 3"/>
+    </svg>
+  {% endif %}
+</span>
