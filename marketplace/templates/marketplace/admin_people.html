@@ -50,6 +50,7 @@
           </summary>
           <div class="border-t border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-7 text-slate-600">
             <p>{% if profile.farm_address %}{{ profile.farm_address }}{% else %}آدرس زمین هنوز ثبت نشده است.{% endif %}</p>
+            {% if profile.created_by %}<p>ثبت‌شده توسط {{ profile.created_by.get_full_name }}</p>{% endif %}
             <a href="{% url 'farmer_public' profile.user.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
           </div>
         </details>
@@ -82,6 +83,7 @@
               {% for service in worker.services.all %}{{ service.name }}{% if not forloop.last %}، {% endif %}{% empty %}حوزه کاری ثبت نشده است.{% endfor %}
             </p>
             {% if worker.bio %}<p class="mt-1 text-slate-500">{{ worker.bio }}</p>{% endif %}
+            {% if worker.user.profile.created_by %}<p>ثبت‌شده توسط {{ worker.user.profile.created_by.get_full_name }}</p>{% endif %}
             <a href="{% url 'worker_detail' worker.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
           </div>
         </details>

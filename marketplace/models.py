@@ -142,6 +142,10 @@ class Profile(models.Model):
     farm_longitude = models.DecimalField(
         'طول جغرافیایی زمین', max_digits=9, decimal_places=6, null=True, blank=True,
     )
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='created_accounts', verbose_name='ثبت‌کننده',
+    )
 
     class Meta:
         verbose_name = 'پروفایل'

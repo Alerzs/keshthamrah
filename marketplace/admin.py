@@ -1,10 +1,82 @@
-from django.contrib import admin
+from io import BytesIO
+
+from django.contrib import admin, messages
+from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.core.exceptions import PermissionDenied
 from django.db import models
+from django.http import HttpResponse
+from django.shortcuts import redirect
+from django.utils import timezone
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from .dates import to_jalali
 from .forms import JalaliDateTimeWidget, JalaliDateWidget
 from .models import Booking, Category, City, Profile, Review, Service, User, WorkerProfile
+
+PROFILE_EXPORT_HEADERS = (
+    'نام',
+    'نام کاربری',
+    'نقش',
+    'موبایل',
+    'شهر زمین',
+    'استان',
+    'آدرس زمین',
+    'عرض جغرافیایی',
+    'طول جغرافیایی',
+    'ثبت‌کننده',
+    'تاریخ عضویت',
+)
+
+
+def profile_export_row(profile):
+    user = profile.user
+    city = profile.farm_city
+    created_by = profile.created_by
+    return (
+        user.get_full_name(),
+        user.username,
+        profile.get_role_display(),
+        profile.phone,
+        city.name if city else '',
+        city.province if city else '',
+        profile.farm_address,
+        '' if profile.farm_latitude is None else str(profile.farm_latitude),
+        '' if profile.farm_longitude is None else str(profile.farm_longitude),
+        created_by.get_full_name() if created_by else '',
+        to_jalali(user.date_joined, 'Y/m/d H:i'),
+    )
+
+
+def profiles_workbook(profiles):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'پروفایل‌ها'
+    sheet.sheet_view.rightToLeft = True
+    sheet.freeze_panes = 'A2'
+    sheet.auto_filter.ref = f'A1:{get_column_letter(len(PROFILE_EXPORT_HEADERS))}1'
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='0F766E')
+    alignment = Alignment(horizontal='right', vertical='center')
+    for column, title in enumerate(PROFILE_EXPORT_HEADERS, 1):
+        cell = sheet.cell(1, column, title)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = alignment
+    text_columns = {2, 4}
+    for row_index, profile in enumerate(profiles, 2):
+        for column, value in enumerate(profile_export_row(profile), 1):
+            cell = sheet.cell(row_index, column, value)
+            cell.alignment = alignment
+            if column in text_columns:
+                cell.number_format = '@'
+    for column in range(1, len(PROFILE_EXPORT_HEADERS) + 1):
+        sheet.column_dimensions[get_column_letter(column)].width = 22
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
 
 
 @admin.register(City)
@@ -59,9 +131,40 @@ class UserAdmin(DjangoUserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'phone', 'farm_city')
+    change_list_template = 'admin/marketplace/profile/change_list.html'
+    list_display = ('user', 'role', 'phone', 'farm_city', 'created_by')
     list_filter = ('role',)
-    search_fields = ('phone', 'user__name', 'user__first_name', 'user__last_name')
+    list_select_related = ('user', 'farm_city', 'created_by')
+    search_fields = ('phone', 'user__name', 'user__first_name', 'user__last_name', 'user__username')
+
+    def get_urls(self):
+        from django.urls import path
+
+        info = self.opts.app_label, self.opts.model_name
+        custom = [
+            path(
+                'export/',
+                self.admin_site.admin_view(self.export_excel),
+                name='%s_%s_export' % info,
+            ),
+        ]
+        return custom + super().get_urls()
+
+    def export_excel(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        try:
+            profiles = self.get_changelist_instance(request).get_queryset(request)
+        except IncorrectLookupParameters:
+            messages.error(request, 'فیلتر خروجی معتبر نیست.')
+            return redirect('admin:marketplace_profile_changelist')
+        stamp = to_jalali(timezone.localdate(), 'Y-m-d').translate(str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789'))
+        response = HttpResponse(
+            profiles_workbook(profiles),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="profiles-{stamp or "export"}.xlsx"'
+        return response
 
 
 @admin.register(WorkerProfile)

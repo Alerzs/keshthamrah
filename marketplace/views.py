@@ -493,13 +493,13 @@ def admin_people(request):
     query = request.GET.get('q', '').strip()
     farmers = _filter_people(
         Profile.objects.filter(role=Profile.FARMER)
-        .select_related('user', 'farm_city')
+        .select_related('user', 'farm_city', 'created_by')
         .order_by('user__name', 'user__username'),
         query,
         'phone',
     )
     workers = _filter_people(
-        WorkerProfile.objects.select_related('user__profile')
+        WorkerProfile.objects.select_related('user__profile', 'user__profile__created_by')
         .prefetch_related('services', 'cities')
         .order_by('user__name', 'user__username'),
         query,
@@ -519,7 +519,7 @@ def admin_people(request):
 def admin_create_account(request):
     form = AdminAccountForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
-        user = form.save()
+        user = form.save(created_by=request.user)
         password = form.cleaned_data['password']
         try:
             send_account_sms(user.username, password)

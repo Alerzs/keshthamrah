@@ -616,6 +616,8 @@ class MarketplaceFlowTests(TestCase):
         self.assertTrue(worker_user.worker.services.filter(pk=service.pk).exists())
         self.assertTrue(worker_user.worker.cities.filter(pk=city.pk).exists())
         self.assertEqual(worker_user.profile.completion_percent, 100)
+        admin = User.objects.get(username='09124444444')
+        self.assertEqual(worker_user.profile.created_by, admin)
         listing = self.client.get(reverse('workers'), {'service': 'wheat-harvest', 'city': city.pk})
         self.assertContains(listing, 'علی رضایی')
 
@@ -637,7 +639,12 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(farmer_user.profile.farm_address, 'جاده کلات، کیلومتر ۲۰، قطعه شمالی')
         self.assertTrue(farmer_user.profile.has_farm_location)
         self.assertEqual(farmer_user.profile.completion_percent, 100)
+        self.assertEqual(farmer_user.profile.created_by, admin)
         self.assertFalse(hasattr(farmer_user, 'worker') and farmer_user.worker.pk)
+        people = self.client.get(reverse('admin_people'), {'q': '09128887766'})
+        self.assertContains(people, 'ثبت‌شده توسط لیلا احمدی')
+        workers_page = self.client.get(reverse('admin_people'), {'role': 'worker', 'q': '09125556677'})
+        self.assertContains(workers_page, 'ثبت‌شده توسط لیلا احمدی')
         self.client.logout()
         self.assertTrue(self.client.login(username='09128887766', password='farmerpass'))
 
@@ -979,3 +986,53 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(post.call_args.kwargs['json']['to'], '09126662222')
         self.assertNotIn('username', post.call_args.kwargs['json'])
         self.assertNotIn('console-key', response.content.decode())
+
+    def test_admin_can_export_profiles_to_excel(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        guest = self.client.get(reverse('admin:marketplace_profile_export'))
+        self.assertEqual(guest.status_code, 302)
+        self.assertIn('/admin/login/', guest['Location'])
+
+        self.client.login(username='09121111111', password='demo1234')
+        self.assertEqual(self.client.get(reverse('admin:marketplace_profile_changelist')).status_code, 302)
+        self.client.logout()
+
+        self.client.login(username='admin', password='demo1234')
+        page = self.client.get(reverse('admin:marketplace_profile_changelist'))
+        self.assertContains(page, 'خروجی اکسل')
+        export_url = reverse('admin:marketplace_profile_export')
+        self.assertContains(page, export_url)
+
+        response = self.client.get(export_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        self.assertIn('profiles-', response['Content-Disposition'])
+        sheet = load_workbook(BytesIO(response.content)).active
+        rows = list(sheet.iter_rows(values_only=True))
+        self.assertEqual(rows[0][0], 'نام')
+        self.assertEqual(rows[0][3], 'موبایل')
+        names = {row[0] for row in rows[1:]}
+        self.assertIn('سامان کریمی', names)
+        self.assertIn('رضا محمدی', names)
+
+        farmers = self.client.get(export_url, {'role__exact': 'farmer'})
+        farmer_rows = list(load_workbook(BytesIO(farmers.content)).active.iter_rows(min_row=2, values_only=True))
+        farmer_names = {row[0] for row in farmer_rows}
+        self.assertIn('سامان کریمی', farmer_names)
+        self.assertNotIn('رضا محمدی', farmer_names)
+        saman = next(row for row in farmer_rows if row[0] == 'سامان کریمی')
+        self.assertEqual(saman[2], 'صاحب زمین')
+        self.assertEqual(saman[3], '09121111111')
+
+        searched = self.client.get(export_url, {'q': 'رضا'})
+        searched_names = {
+            row[0] for row in load_workbook(BytesIO(searched.content)).active.iter_rows(min_row=2, values_only=True)
+        }
+        self.assertIn('رضا محمدی', searched_names)
+        self.assertNotIn('سامان کریمی', searched_names)

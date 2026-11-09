@@ -332,7 +332,7 @@ class AdminAccountForm(forms.Form):
             self.add_error('farm_latitude', OUTSIDE_IRAN)
 
     @transaction.atomic
-    def save(self):
+    def save(self, created_by=None):
         data = self.cleaned_data
         name = data['name']
         parts = name.split()
@@ -343,7 +343,9 @@ class AdminAccountForm(forms.Form):
             last_name=' '.join(parts[1:]),
             name=name,
         )
-        profile = Profile.objects.create(user=user, role=data['role'], phone=data['username'])
+        profile = Profile.objects.create(
+            user=user, role=data['role'], phone=data['username'], created_by=created_by,
+        )
         if data['role'] == Profile.WORKER:
             worker = WorkerProfile.objects.create(
                 user=user,
