@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / '.env', override=True)
+load_dotenv(BASE_DIR / '.env', override=False)
 
 
 def env_bool(name, default=False):
@@ -17,7 +18,16 @@ def env_bool(name, default=False):
 
 
 def env_csv(name, default=''):
-    return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
+    raw = os.environ.get(name, default).replace(';', ',')
+    return [item.strip() for item in raw.split(',') if item.strip()]
+
+
+def app_hostname(value):
+    raw = (value or '').strip().rstrip('/')
+    if not raw:
+        return ''
+    parsed = urlparse(raw if '://' in raw else f'https://{raw}')
+    return (parsed.hostname or '').strip()
 
 
 
@@ -38,6 +48,22 @@ CSRF_TRUSTED_ORIGINS = [
     origin for origin in env_csv('CSRF_TRUSTED_ORIGINS')
     if origin.startswith(('http://', 'https://'))
 ]
+app_url = os.environ.get('APP_URL', '').strip().rstrip('/')
+app_host = app_hostname(app_url)
+if app_host and app_host not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(app_host)
+if app_url.startswith(('http://', 'https://')) and app_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(app_url)
+elif app_host:
+    origin = f'https://{app_host}'
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+for host in ALLOWED_HOSTS:
+    if host in {'*', ''} or host.startswith('.'):
+        continue
+    origin = f'https://{host}'
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 
 
@@ -54,6 +80,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'config.middleware.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -132,6 +159,7 @@ STORAGES = {
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True

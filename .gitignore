@@ -12,6 +12,7 @@ env/
 
 # Local environment. Copy .env.example to .env.
 .env
+.env.parspack
 
 # SQLite database, next to manage.py
 DB/*.sqlite3
