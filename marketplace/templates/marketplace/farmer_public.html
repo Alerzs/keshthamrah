@@ -54,7 +54,7 @@
       {% for review in reviews %}
         <article class="border border-line bg-sheet p-4">
           <div class="flex items-center justify-between gap-3 text-sm">
-            <a href="{% url 'worker_detail' review.worker.pk %}" class="font-semibold text-soil hover:text-clay">{{ review.worker.user.get_full_name }}</a>
+            <a href="{% url 'worker_detail' review.worker.pk %}" class="font-semibold text-soil hover:text-clay">{{ review.worker.get_full_name }}</a>
             <span class="text-clay">★ {{ review.rating|fa_digits }}</span>
           </div>
           {% if review.booking.service %}

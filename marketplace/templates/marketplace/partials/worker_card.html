@@ -1,10 +1,10 @@
 {% load fa %}
 <article class="flex flex-col gap-4 border border-line bg-sheet p-5 transition hover:border-clay sm:flex-row sm:items-center">
   <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="group flex min-w-0 flex-1 gap-4 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-clay">
-    <div class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</div>
+    <div class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white {{ worker.avatar_class }}">{{ worker.initials }}</div>
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-2">
-        <h3 class="font-bold text-ink group-hover:text-clay">{{ worker.user.get_full_name }}</h3>
+        <h3 class="font-bold text-ink group-hover:text-clay">{{ worker.get_full_name }}</h3>
         {% if worker.is_verified %}
           <span class="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-soil">
             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
@@ -43,9 +43,9 @@
     <div class="text-sm font-extrabold text-soil">{{ worker.daily_wage|toman }}</div>
     <div class="flex gap-2">
       <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="rounded-xl border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-paper">پروفایل</a>
-      {% if request.user.is_authenticated and request.user.pk == worker.user.pk %}
+      {% if request.user.is_authenticated and request.user.pk == worker.pk %}
         <span class="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500">پروفایل شما</span>
-      {% elif worker.is_active and current_profile.role != 'worker' and current_profile.role != 'admin' %}
+      {% elif worker.accepts_jobs and current_profile.role != 'worker' and current_profile.role != 'admin' %}
         <a href="{% url 'book' worker.pk %}?{{ request.GET.urlencode }}" class="rounded-md bg-clay px-3 py-2 text-xs font-semibold text-white hover:bg-clay-dark">رزرو</a>
       {% endif %}
     </div>

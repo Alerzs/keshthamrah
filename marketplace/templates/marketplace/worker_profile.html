@@ -78,13 +78,13 @@
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1"/><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 12v3"/></svg>
             </span>
             <span>
-              <span class="block text-sm font-bold text-slate-800">{{ form.is_active.label }}</span>
+              <span class="block text-sm font-bold text-slate-800">{{ form.accepts_jobs.label }}</span>
               <span class="mt-1 block text-xs leading-5 text-slate-500">اگر خاموش باشد، در پیشنهادهای صاحبان زمین دیده نمی‌شوید.</span>
             </span>
           </span>
-          {{ form.is_active }}
+          {{ form.accepts_jobs }}
         </label>
-        {% for error in form.is_active.errors %}<p class="text-xs text-rose-600">{{ error }}</p>{% endfor %}
+        {% for error in form.accepts_jobs.errors %}<p class="text-xs text-rose-600">{{ error }}</p>{% endfor %}
       </div>
     </section>
 

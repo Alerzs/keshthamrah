@@ -1,15 +1,15 @@
 {% extends "marketplace/base.html" %}
 {% load fa %}
-{% block title %}{{ worker.user.get_full_name }}{% endblock %}
+{% block title %}{{ worker.get_full_name }}{% endblock %}
 {% block content %}
 <section class="mx-auto max-w-3xl px-4 py-8">
   <a href="{% url 'workers' %}?{{ request.GET.urlencode }}" class="text-xs font-semibold text-teal-700">بازگشت به فهرست</a>
   <article class="mt-4 rounded-3xl bg-white p-6 shadow-sm">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-      <div class="grid h-16 w-16 place-items-center rounded-2xl text-xl font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</div>
+      <div class="grid h-16 w-16 place-items-center rounded-2xl text-xl font-bold text-white {{ worker.avatar_class }}">{{ worker.initials }}</div>
       <div class="flex-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-2xl font-extrabold">{{ worker.user.get_full_name }}</h1>
+          <h1 class="text-2xl font-extrabold">{{ worker.get_full_name }}</h1>
           {% if worker.is_verified %}
             <span class="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">هویت تأیید شده</span>
           {% endif %}
@@ -40,13 +40,13 @@
         <span class="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">{{ city.name }}، {{ city.province }}</span>
       {% endfor %}
     </div>
-    {% if worker.is_active and current_profile.role != 'worker' and current_profile.role != 'admin' %}
+    {% if worker.accepts_jobs and current_profile.role != 'worker' and current_profile.role != 'admin' %}
       <a href="{% url 'book' worker.pk %}?{{ request.GET.urlencode }}" class="mt-6 inline-flex rounded-2xl bg-teal-600 px-6 py-3 text-sm font-bold text-white hover:bg-teal-700">رزرو این سرویس دهنده</a>
     {% elif current_profile.role == 'worker' %}
       <p class="mt-6 text-sm text-slate-500">ثبت درخواست برای صاحبان زمین است. درخواست‌های رسیده را از کارهای من تأیید کنید.</p>
     {% elif current_profile.role == 'admin' %}
       <p class="mt-6 text-sm text-slate-500">رزرو سرویس‌دهنده فقط برای صاحبان زمین است.</p>
-    {% elif not worker.is_active %}
+    {% elif not worker.accepts_jobs %}
       <p class="mt-6 text-sm text-slate-500">این سرویس دهنده فعلاً سفارش جدید نمی‌پذیرد.</p>
     {% endif %}
   </article>

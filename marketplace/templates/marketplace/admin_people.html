@@ -38,7 +38,7 @@
             <span class="flex items-center gap-3">
               <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-bold text-white {{ profile.avatar_class }}">{{ profile.initials }}</span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-bold">{{ profile.user.get_full_name }}</span>
+                <span class="block truncate text-sm font-bold">{{ profile.get_full_name }}</span>
                 <span class="mt-0.5 block truncate text-xs text-slate-500">
                   <span dir="ltr">{{ profile.phone|fa_digits }}</span>
                   · {% if profile.farm_city %}{{ profile.farm_city.name }}{% else %}شهر زمین ثبت نشده{% endif %}
@@ -51,7 +51,7 @@
           <div class="border-t border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-7 text-slate-600">
             <p>{% if profile.farm_address %}{{ profile.farm_address }}{% else %}آدرس زمین هنوز ثبت نشده است.{% endif %}</p>
             {% if profile.created_by %}<p>ثبت‌شده توسط {{ profile.created_by.get_full_name }}</p>{% endif %}
-            <a href="{% url 'farmer_public' profile.user.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
+            <a href="{% url 'farmer_public' profile.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
           </div>
         </details>
       {% empty %}
@@ -64,16 +64,16 @@
         <details class="group border-b border-slate-100 last:border-b-0">
           <summary class="cursor-pointer list-none px-3 py-2.5 marker:content-none hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span class="flex items-center gap-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-bold text-white {{ worker.user.profile.avatar_class }}">{{ worker.user.profile.initials }}</span>
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-bold text-white {{ worker.avatar_class }}">{{ worker.initials }}</span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-bold">{{ worker.user.get_full_name }}</span>
+                <span class="block truncate text-sm font-bold">{{ worker.get_full_name }}</span>
                 <span class="mt-0.5 block truncate text-xs text-slate-500">
-                  <span dir="ltr">{{ worker.user.profile.phone|fa_digits }}</span>
+                  <span dir="ltr">{{ worker.phone|fa_digits }}</span>
                   ·
                   {% for city in worker.cities.all %}{{ city.name }}{% if not forloop.last %}، {% endif %}{% empty %}شهر محل کار ثبت نشده{% endfor %}
                 </span>
               </span>
-              <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {% if worker.is_active %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if worker.is_active %}فعال{% else %}غیرفعال{% endif %}</span>
+              <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {% if worker.accepts_jobs %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if worker.accepts_jobs %}فعال{% else %}غیرفعال{% endif %}</span>
               <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </span>
           </summary>
@@ -83,7 +83,7 @@
               {% for service in worker.services.all %}{{ service.name }}{% if not forloop.last %}، {% endif %}{% empty %}حوزه کاری ثبت نشده است.{% endfor %}
             </p>
             {% if worker.bio %}<p class="mt-1 text-slate-500">{{ worker.bio }}</p>{% endif %}
-            {% if worker.user.profile.created_by %}<p>ثبت‌شده توسط {{ worker.user.profile.created_by.get_full_name }}</p>{% endif %}
+            {% if worker.created_by %}<p>ثبت‌شده توسط {{ worker.created_by.get_full_name }}</p>{% endif %}
             <a href="{% url 'worker_detail' worker.pk %}" class="mt-2 inline-block text-xs font-bold text-teal-800 hover:text-teal-700">مشاهده پروفایل</a>
           </div>
         </details>

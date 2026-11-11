@@ -35,14 +35,14 @@
       {% if booking.shows_worker_contact %}
         <div class="mt-4 rounded-2xl bg-teal-50 p-4">
           <p class="text-sm font-extrabold text-slate-800">
-            <a href="{% url 'worker_detail' booking.worker.pk %}" class="hover:text-teal-700">{{ booking.worker.user.get_full_name }}</a>
+            <a href="{% url 'worker_detail' booking.worker.pk %}" class="hover:text-teal-700">{{ booking.worker.get_full_name }}</a>
           </p>
           <p class="mt-1 text-xs text-slate-600">
             ★ {{ booking.worker.rating|floatformat:1|fa_digits }}
             · {{ booking.worker.experience_years|fa_digits }} سال سابقه
             · {{ booking.worker.jobs_done|fa_digits }} کار انجام‌شده
           </p>
-          <p class="mt-2 text-sm">تماس با سرویس دهنده: <a class="font-bold text-teal-700" dir="ltr" href="tel:{{ booking.worker.user.profile.phone }}">{{ booking.worker.user.profile.phone|fa_digits }}</a></p>
+          <p class="mt-2 text-sm">تماس با سرویس دهنده: <a class="font-bold text-teal-700" dir="ltr" href="tel:{{ booking.worker.phone }}">{{ booking.worker.phone|fa_digits }}</a></p>
           <a href="{% url 'worker_detail' booking.worker.pk %}" class="mt-3 inline-block text-xs font-bold text-teal-700">مشاهده پروفایل</a>
         </div>
       {% elif booking.status == 'pending' %}

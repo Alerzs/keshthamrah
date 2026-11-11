@@ -4,8 +4,6 @@ import re
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from marketplace.models import Profile
-
 
 class Command(BaseCommand):
     help = 'اگر DJANGO_SUPERUSER_USERNAME تازه باشد، یک مدیر می‌سازد.'
@@ -23,14 +21,14 @@ class Command(BaseCommand):
         name = os.environ.get('DJANGO_SUPERUSER_NAME', '').strip() or 'مدیر کل'
         user = User.objects.create_superuser(
             username=username,
-            email=os.environ.get('DJANGO_SUPERUSER_EMAIL', ''),
             password=password,
         )
         user.name = name
-        user.first_name = name
-        user.save(update_fields=['name', 'first_name'])
+        user.save(update_fields=['name'])
         if re.fullmatch(r'09\d{9}', username):
-            Profile.objects.create(user=user, role=Profile.ADMIN, phone=username)
+            user.role = User.ADMIN
+            user.phone = username
+            user.save(update_fields=['role', 'phone'])
             self.stdout.write(self.style.SUCCESS(f'Created site admin {username}.'))
             return
         self.stdout.write(self.style.SUCCESS(

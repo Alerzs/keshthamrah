@@ -233,7 +233,7 @@
             </p>
             <p class="truncate text-xs text-muted">
               صاحب زمین
-              · درباره <a href="{% url 'worker_detail' review.worker.pk %}" class="font-semibold text-soil hover:text-clay">{{ review.worker.user.get_full_name }}</a>
+              · درباره <a href="{% url 'worker_detail' review.worker.pk %}" class="font-semibold text-soil hover:text-clay">{{ review.worker.get_full_name }}</a>
               {% for city in review.worker.cities.all %}{% if forloop.first %} · <a href="{% url 'workers' %}?city={{ city.pk }}" class="hover:text-clay">{{ city.name }}</a>{% endif %}{% endfor %}
             </p>
           </div>

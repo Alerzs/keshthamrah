@@ -15,7 +15,7 @@ from .forms import (
     WorkerSettingsForm,
 )
 from .geo import city_centers, iran_border
-from .models import Booking, Category, City, Profile, Review, Service, User, WorkerProfile
+from .models import Booking, Category, City, Review, Service, User
 from .sms import SmsError, send_account_sms
 
 
@@ -25,12 +25,11 @@ def role_required(role):
         def wrapper(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 return redirect(f"{reverse('login')}?{urlencode({'next': request.get_full_path()})}")
-            profile = getattr(request.user, 'profile', None)
-            if profile is None or profile.role != role:
+            if not request.user.role or request.user.role != role:
                 messages.error(request, {
-                    Profile.FARMER: 'رزرو نیرو فقط برای صاحبان زمین امکان‌پذیر است.',
-                    Profile.WORKER: 'این بخش مخصوص سرویس دهندگان است.',
-                    Profile.ADMIN: 'این بخش مخصوص ادمین است.',
+                    User.FARMER: 'رزرو نیرو فقط برای صاحبان زمین امکان‌پذیر است.',
+                    User.WORKER: 'این بخش مخصوص سرویس دهندگان است.',
+                    User.ADMIN: 'این بخش مخصوص ادمین است.',
                 }.get(role, 'به این بخش دسترسی ندارید.'))
                 return redirect('home')
             return view(request, *args, **kwargs)
@@ -51,19 +50,18 @@ def home(request):
         'popular_services': Service.objects.filter(is_popular=True).select_related('category'),
         'all_services': Service.objects.all(),
         'featured_workers': (
-            WorkerProfile.objects.filter(is_active=True)
-            .select_related('user__profile')
+            User.objects.filter(role=User.WORKER, accepts_jobs=True)
             .prefetch_related('services', 'cities')
             .order_by('-rating', '-jobs_done')[:4]
         ),
         'reviews': (
-            Review.objects.select_related('farmer', 'worker__user__profile')
+            Review.objects.select_related('farmer', 'worker')
             .prefetch_related('worker__cities')[:6]
         ),
         'featured_cities': City.objects.filter(is_featured=True).order_by('featured_order'),
         'cities': City.objects.all(),
         'stats': {
-            'workers': WorkerProfile.objects.filter(is_active=True).count(),
+            'workers': User.objects.filter(role=User.WORKER, accepts_jobs=True).count(),
             'cities': City.objects.count(),
             'services': Service.objects.count(),
         },
@@ -80,21 +78,28 @@ def category_detail(request, slug):
     return render(request, 'marketplace/category.html', {'category': category})
 
 
+def _account(request):
+    user = request.user
+    if user.is_authenticated and user.role:
+        return user
+    return None
+
+
 def order_service(request, slug):
-    profile = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
-    if profile and profile.role == Profile.WORKER:
+    profile = _account(request)
+    if profile and profile.role == User.WORKER:
         messages.error(
             request,
             'ثبت درخواست فقط برای صاحبان زمین است. درخواست‌های رسیده را از کارهای من تأیید کنید.',
         )
         return redirect('worker_jobs')
-    if profile and profile.role == Profile.ADMIN:
+    if profile and profile.role == User.ADMIN:
         messages.error(request, 'رزرو سرویس‌دهنده فقط برای صاحبان زمین است.')
         return redirect('admin_panel')
     service = get_object_or_404(Service.objects.select_related('category'), slug=slug)
     initial = {}
     locked = None
-    if profile and profile.role == Profile.FARMER:
+    if profile and profile.role == User.FARMER:
         if profile.has_saved_farm:
             locked = (profile.farm_city, profile.farm_address)
         else:
@@ -146,23 +151,20 @@ def _request_context(request):
 def workers(request):
     ctx = _request_context(request)
     qs = (
-        WorkerProfile.objects.filter(is_active=True)
-        .select_related('user__profile')
+        User.objects.filter(role=User.WORKER, accepts_jobs=True)
         .prefetch_related('services', 'cities')
     )
     if ctx['selected_service']:
         qs = qs.filter(services=ctx['selected_service'])
     elif ctx['q']:
         qs = qs.filter(
-            Q(user__name__icontains=ctx['q'])
-            | Q(user__first_name__icontains=ctx['q'])
-            | Q(user__last_name__icontains=ctx['q'])
+            Q(name__icontains=ctx['q'])
             | Q(services__name__icontains=ctx['q'])
             | Q(bio__icontains=ctx['q'])
         )
-    profile = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
+    profile = _account(request)
     farm_locked = bool(
-        profile and profile.role == Profile.FARMER and profile.has_saved_farm and ctx['address']
+        profile and profile.role == User.FARMER and profile.has_saved_farm and ctx['address']
     )
     if farm_locked:
         ctx['selected_city'] = profile.farm_city
@@ -190,7 +192,7 @@ def workers(request):
 
 def worker_detail(request, pk):
     worker = get_object_or_404(
-        WorkerProfile.objects.select_related('user__profile').prefetch_related(
+        User.objects.filter(role=User.WORKER).prefetch_related(
             'services',
             'cities',
             Prefetch('reviews', queryset=Review.objects.select_related('farmer')),
@@ -221,7 +223,7 @@ def _book_initial(request, worker):
         initial['land_area'] = request.GET.get('area')
     if request.GET.get('note'):
         initial['note'] = request.GET.get('note')
-    profile = request.user.profile
+    profile = request.user
     if profile.has_saved_farm:
         initial['city'] = profile.farm_city_id
         initial['address'] = profile.farm_address.strip()
@@ -233,23 +235,23 @@ def _book_initial(request, worker):
     return initial
 
 
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def book(request, pk):
-    if not request.user.profile.is_profile_complete:
+    if not request.user.is_profile_complete:
         messages.info(request, 'قبل از رزرو، شهر و آدرس زمین را در پروفایل کامل کنید.')
         return redirect(f"{reverse('farmer_profile')}?{urlencode({'next': request.get_full_path()})}")
     worker = get_object_or_404(
-        WorkerProfile.objects.select_related('user__profile').prefetch_related('services', 'cities'),
+        User.objects.filter(role=User.WORKER).prefetch_related('services', 'cities'),
         pk=pk,
     )
-    if not worker.is_active:
+    if not worker.accepts_jobs:
         messages.error(request, 'این سرویس دهنده فعلاً سفارش جدید نمی‌پذیرد.')
         return redirect('workers')
     if not worker.services.exists() or not worker.cities.exists():
         messages.error(request, 'پروفایل این سرویس دهنده هنوز کامل نشده است.')
         return redirect('workers')
 
-    profile = request.user.profile
+    profile = request.user
     locked = (profile.farm_city, profile.farm_address) if profile.has_saved_farm else None
     if request.method == 'POST':
         form = BookForm(request.POST, worker=worker, locked_location=locked)
@@ -285,7 +287,7 @@ def _bookings_url(request):
     return reverse('bookings')
 
 
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def bookings(request):
     options = _farmer_stage_options()
     allowed = {value for value, _label, _query in options}
@@ -294,7 +296,7 @@ def bookings(request):
         selected = ''
     base = (
         request.user.bookings
-        .select_related('service', 'city', 'worker__user__profile', 'review')
+        .select_related('service', 'city', 'worker', 'review')
         .order_by('-created_at')
     )
     counts = base.aggregate(**{
@@ -314,7 +316,7 @@ def bookings(request):
 
 
 @require_POST
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def booking_cancel(request, pk):
     booking = get_object_or_404(Booking, pk=pk, farmer=request.user)
     if booking.status in (Booking.PENDING, Booking.CONFIRMED):
@@ -327,7 +329,7 @@ def booking_cancel(request, pk):
 
 
 @require_POST
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def booking_complete(request, pk):
     booking = get_object_or_404(
         Booking.objects.select_related('worker'),
@@ -337,13 +339,13 @@ def booking_complete(request, pk):
     )
     booking.status = Booking.DONE
     booking.save(update_fields=['status'])
-    WorkerProfile.objects.filter(pk=booking.worker_id).update(jobs_done=F('jobs_done') + 1)
+    User.objects.filter(pk=booking.worker_id).update(jobs_done=F('jobs_done') + 1)
     messages.success(request, 'اتمام کار ثبت شد. حالا می‌توانید نظر خود را بنویسید.')
     return redirect(_bookings_url(request))
 
 
 @require_POST
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def booking_review(request, pk):
     booking = get_object_or_404(Booking, pk=pk, farmer=request.user, status=Booking.DONE)
     if booking.existing_review:
@@ -370,14 +372,12 @@ def _farmer_viewer(request, farmer):
         return False, []
     if request.user.pk == farmer.pk:
         return True, []
-    profile = getattr(request.user, 'profile', None)
-    if profile and profile.role == Profile.ADMIN:
+    if request.user.role == User.ADMIN:
         return True, []
-    worker = WorkerProfile.objects.filter(user=request.user).first()
-    if worker is None:
+    if request.user.role != User.WORKER:
         return False, []
     jobs = list(
-        worker.jobs.filter(farmer=farmer, admin_approved=True)
+        request.user.jobs.filter(farmer=farmer, admin_approved=True)
         .select_related('service', 'city')
         .order_by('-created_at')
     )
@@ -386,19 +386,19 @@ def _farmer_viewer(request, farmer):
 
 def farmer_public(request, pk):
     farmer = get_object_or_404(
-        User.objects.select_related('profile__farm_city'),
+        User.objects.select_related('farm_city'),
         pk=pk,
-        profile__role=Profile.FARMER,
+        role=User.FARMER,
     )
     can_see_contact, shared_jobs = _farmer_viewer(request, farmer)
     reviews = (
         Review.objects.filter(farmer=farmer)
-        .select_related('worker__user', 'booking__service')
+        .select_related('worker', 'booking__service')
         .order_by('-created_at')[:12]
     )
     return render(request, 'marketplace/farmer_public.html', {
         'farmer': farmer,
-        'profile': farmer.profile,
+        'profile': farmer,
         'can_see_contact': can_see_contact,
         'shared_jobs': shared_jobs,
         'reviews': reviews,
@@ -407,9 +407,9 @@ def farmer_public(request, pk):
     })
 
 
-@role_required(Profile.FARMER)
+@role_required(User.FARMER)
 def farmer_profile(request):
-    profile = request.user.profile
+    profile = request.user
     form = FarmerProfileForm(request.POST or None, instance=profile)
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -428,7 +428,7 @@ def farmer_profile(request):
 ADMIN_PAGE_SIZE = 10
 
 
-@role_required(Profile.ADMIN)
+@role_required(User.ADMIN)
 def admin_panel(request):
     selected = request.GET.get('status', '')
     valid = {value for value, _label in Booking.STATUS_CHOICES} | {'awaiting'}
@@ -436,7 +436,7 @@ def admin_panel(request):
         selected = ''
     jobs = (
         Booking.objects.select_related(
-            'service', 'city', 'farmer__profile', 'worker__user__profile', 'confirmed_by',
+            'service', 'city', 'farmer', 'worker', 'confirmed_by',
         )
         .order_by('-created_at')
     )
@@ -470,42 +470,39 @@ def admin_panel(request):
 _PEOPLE_DIGIT_TRANS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
 
 
-def _filter_people(queryset, query, phone_field):
+def _filter_people(queryset, query):
     query = (query or '').strip()
     if not query:
         return queryset
     normalized = query.translate(_PEOPLE_DIGIT_TRANS)
     matched = (
-        Q(user__name__icontains=query)
-        | Q(user__first_name__icontains=query)
-        | Q(user__last_name__icontains=query)
+        Q(name__icontains=query)
     )
     for term in {query, normalized}:
-        matched |= Q(**{f'{phone_field}__icontains': term}) | Q(user__username__icontains=term)
+        matched |= Q(phone__icontains=term) | Q(username__icontains=term)
     return queryset.filter(matched).distinct()
 
 
-@role_required(Profile.ADMIN)
+@role_required(User.ADMIN)
 def admin_people(request):
-    selected = request.GET.get('role', Profile.FARMER)
-    if selected not in {Profile.FARMER, Profile.WORKER}:
-        selected = Profile.FARMER
+    selected = request.GET.get('role', User.FARMER)
+    if selected not in {User.FARMER, User.WORKER}:
+        selected = User.FARMER
     query = request.GET.get('q', '').strip()
     farmers = _filter_people(
-        Profile.objects.filter(role=Profile.FARMER)
-        .select_related('user', 'farm_city', 'created_by')
-        .order_by('user__name', 'user__username'),
+        User.objects.filter(role=User.FARMER)
+        .select_related('farm_city', 'created_by')
+        .order_by('name', 'username'),
         query,
-        'phone',
     )
     workers = _filter_people(
-        WorkerProfile.objects.select_related('user__profile', 'user__profile__created_by')
+        User.objects.filter(role=User.WORKER)
+        .select_related('created_by')
         .prefetch_related('services', 'cities')
-        .order_by('user__name', 'user__username'),
+        .order_by('name', 'username'),
         query,
-        'user__profile__phone',
     )
-    people = workers if selected == Profile.WORKER else farmers
+    people = workers if selected == User.WORKER else farmers
     return render(request, 'marketplace/admin_people.html', {
         'selected': selected,
         'query': query,
@@ -515,7 +512,7 @@ def admin_people(request):
     })
 
 
-@role_required(Profile.ADMIN)
+@role_required(User.ADMIN)
 def admin_create_account(request):
     form = AdminAccountForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -546,7 +543,7 @@ def admin_create_account(request):
 
 
 @require_POST
-@role_required(Profile.ADMIN)
+@role_required(User.ADMIN)
 def admin_approve(request, pk):
     booking = get_object_or_404(Booking, pk=pk, status=Booking.PENDING, admin_approved=False)
     booking.confirmed_by = request.user
@@ -570,9 +567,9 @@ def admin_approve(request, pk):
     return redirect('admin_panel')
 
 
-@role_required(Profile.WORKER)
+@role_required(User.WORKER)
 def worker_profile(request):
-    worker, _ = WorkerProfile.objects.get_or_create(user=request.user)
+    worker = request.user
     if request.method == 'POST':
         selected_services = {int(item) for item in request.POST.getlist('services') if item.isdigit()}
         selected_cities = {int(item) for item in request.POST.getlist('cities') if item.isdigit()}
@@ -602,21 +599,21 @@ def worker_profile(request):
     })
 
 
-@role_required(Profile.WORKER)
+@role_required(User.WORKER)
 def worker_jobs(request):
-    worker = get_object_or_404(WorkerProfile, user=request.user)
+    worker = request.user
     jobs = (
         worker.jobs.filter(Q(admin_approved=True) | ~Q(rejection_reason=''))
-        .select_related('service', 'city', 'farmer__profile', 'review')
+        .select_related('service', 'city', 'farmer', 'review')
         .order_by('-created_at')
     )
     return render(request, 'marketplace/worker_jobs.html', {'jobs': jobs, 'worker': worker})
 
 
 @require_POST
-@role_required(Profile.WORKER)
+@role_required(User.WORKER)
 def job_update(request, pk):
-    worker = get_object_or_404(WorkerProfile, user=request.user)
+    worker = request.user
     booking = get_object_or_404(Booking, pk=pk, worker=worker, admin_approved=True)
     action = request.POST.get('action')
     if action == 'confirm' and booking.status == Booking.PENDING:
@@ -636,13 +633,13 @@ def register(request):
     if request.user.is_authenticated:
         return redirect('home')
     initial = {}
-    if request.GET.get('role') in {Profile.FARMER, Profile.WORKER}:
+    if request.GET.get('role') in {User.FARMER, User.WORKER}:
         initial['role'] = request.GET.get('role')
     form = RegisterForm(request.POST or None, initial=initial)
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         login(request, user)
-        if user.profile.role == Profile.WORKER:
+        if user.role == User.WORKER:
             messages.info(request, 'حوزه کاری و شهرهای محل کار را در پروفایل مشخص کنید.')
             return redirect('worker_profile')
         messages.info(request, 'برای تکمیل پروفایل، شهر و آدرس زمین را ثبت کنید.')
@@ -655,8 +652,7 @@ def register(request):
 
 def login_view(request):
     if request.user.is_authenticated:
-        profile = getattr(request.user, 'profile', None)
-        if profile and profile.role == Profile.ADMIN:
+        if request.user.role == User.ADMIN:
             return redirect('admin_panel')
         return redirect('home')
     form = LoginForm(request.POST or None)
@@ -670,19 +666,16 @@ def login_view(request):
             form.add_error(None, 'شماره موبایل یا رمز عبور نادرست است.')
         else:
             login(request, user)
-            profile = getattr(user, 'profile', None)
-            if profile and profile.role == Profile.WORKER:
-                worker = getattr(profile, 'worker', None)
-                if worker is None or not worker.services.exists():
-                    messages.info(request, 'برای دیده شدن در پیشنهادها، حوزه کاری و محل کار را کامل کنید.')
-                    return redirect('worker_profile')
-            if profile and profile.role == Profile.FARMER and not profile.is_profile_complete:
+            if user.role == User.WORKER and not user.services.exists():
+                messages.info(request, 'برای دیده شدن در پیشنهادها، حوزه کاری و محل کار را کامل کنید.')
+                return redirect('worker_profile')
+            if user.role == User.FARMER and not user.is_profile_complete:
                 messages.info(request, 'پروفایل زمین هنوز کامل نیست.')
                 nxt = request.POST.get('next') or request.GET.get('next') or ''
                 if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
                     return redirect(f"{reverse('farmer_profile')}?{urlencode({'next': nxt})}")
                 return redirect('farmer_profile')
-            if profile and profile.role == Profile.ADMIN and not (request.POST.get('next') or request.GET.get('next')):
+            if user.role == User.ADMIN and not (request.POST.get('next') or request.GET.get('next')):
                 return redirect('admin_panel')
             return redirect(_safe_next(request))
     return render(request, 'marketplace/login.html', {'form': form})

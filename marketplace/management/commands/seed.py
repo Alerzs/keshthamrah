@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from marketplace.models import Booking, Category, City, Profile, Review, Service, WorkerProfile
+from marketplace.models import Booking, Category, City, Review, Service, User
 
 PASSWORD = 'demo1234'
 
@@ -156,12 +156,12 @@ class Command(BaseCommand):
             )
             cities[name] = city
 
-        self._user('09121111111', 'سامان', 'کریمی', Profile.FARMER)
-        self._user('09124444444', 'لیلا', 'احمدی', Profile.ADMIN)
-        User = get_user_model()
-        admin, created = User.objects.get_or_create(
+        self._user('09121111111', 'سامان', 'کریمی', User.FARMER)
+        self._user('09124444444', 'لیلا', 'احمدی', User.ADMIN)
+        Account = get_user_model()
+        admin, created = Account.objects.get_or_create(
             username='admin',
-            defaults={'is_staff': True, 'is_superuser': True, 'first_name': 'مدیر', 'name': 'مدیر'},
+            defaults={'is_staff': True, 'is_superuser': True, 'name': 'مدیر'},
         )
         admin.is_staff = True
         admin.is_superuser = True
@@ -170,30 +170,28 @@ class Command(BaseCommand):
 
         for item in WORKERS:
             phone, first, last, bio, years, wage, jobs, verified, service_slugs, city_names = item
-            user = self._user(phone, first, last, Profile.WORKER)
-            worker, _ = WorkerProfile.objects.update_or_create(
-                user=user,
-                defaults={
-                    'bio': bio,
-                    'experience_years': years,
-                    'daily_wage': wage,
-                    'jobs_done': jobs,
-                    'is_verified': verified,
-                    'is_active': True,
-                },
-            )
-            worker.services.set([services[slug] for slug in service_slugs])
-            worker.cities.set([cities[name] for name in city_names])
+            user = self._user(phone, first, last, User.WORKER)
+            user.bio = bio
+            user.experience_years = years
+            user.daily_wage = wage
+            user.jobs_done = jobs
+            user.is_verified = verified
+            user.accepts_jobs = True
+            user.save()
+            user.services.set([services[slug] for slug in service_slugs])
+            user.cities.set([cities[name] for name in city_names])
 
-        User.objects.filter(username__in=('09130000008', '09130000009', '09130000015')).delete()
+        Account.objects.filter(username__in=('09130000008', '09130000009', '09130000015')).delete()
 
         authors = [
-            self._user(phone, first, last, Profile.FARMER)
+            self._user(phone, first, last, User.FARMER)
             for phone, first, last in AUTHORS
         ]
         Review.objects.filter(booking__isnull=True).delete()
         now = timezone.now()
-        for index, worker in enumerate(WorkerProfile.objects.select_related('user')):
+        for index, worker in enumerate(
+            Account.objects.filter(role=User.WORKER).order_by('-jobs_done', 'pk')
+        ):
             for offset in (0, 2):
                 rating, comment = REVIEW_TEXTS[(index + offset) % len(REVIEW_TEXTS)]
                 review = Review.objects.create(
@@ -212,16 +210,15 @@ class Command(BaseCommand):
         self.stdout.write('Django admin: admin / demo1234')
 
     def _user(self, phone, first, last, role):
-        User = get_user_model()
+        Account = get_user_model()
         name = f'{first} {last}'.strip()
-        user, _ = User.objects.get_or_create(
+        user, _ = Account.objects.get_or_create(
             username=phone,
-            defaults={'first_name': first, 'last_name': last, 'name': name},
+            defaults={'name': name},
         )
-        user.first_name = first
-        user.last_name = last
         user.name = name
+        user.role = role
+        user.phone = phone
         user.set_password(PASSWORD)
         user.save()
-        Profile.objects.update_or_create(user=user, defaults={'role': role, 'phone': phone})
         return user

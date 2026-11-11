@@ -6,7 +6,7 @@
   <div class="mx-auto max-w-6xl px-4 py-8">
     <h1 class="text-2xl font-extrabold">درخواست‌های رسیده</h1>
     <p class="mt-2 text-sm text-slate-600">صاحب زمین شما را از روی حوزه کاری و شهر محل کار پیدا کرده است.</p>
-    {% if not worker.is_active or not worker.services.exists %}
+    {% if not worker.accepts_jobs or not worker.services.exists %}
       <a href="{% url 'worker_profile' %}" class="mt-3 inline-block text-sm font-semibold text-teal-700">تکمیل پروفایل کاری</a>
     {% endif %}
   </div>
@@ -28,7 +28,7 @@
       {% if job.admin_approved %}
         <p class="mt-3 text-sm leading-7">آدرس زمین: {{ job.address }}{% if job.land_area %} · {{ job.land_area|fa_digits }} هکتار{% endif %}</p>
         {% if job.note %}<p class="text-sm text-slate-500">{{ job.note }}</p>{% endif %}
-        <p class="mt-2 text-sm">تماس با صاحب زمین: <a class="font-bold text-teal-700" dir="ltr" href="tel:{{ job.farmer.profile.phone }}">{{ job.farmer.profile.phone|fa_digits }}</a></p>
+        <p class="mt-2 text-sm">تماس با صاحب زمین: <a class="font-bold text-teal-700" dir="ltr" href="tel:{{ job.farmer.phone }}">{{ job.farmer.phone|fa_digits }}</a></p>
       {% endif %}
       {% if job.rejection_reason %}
         <p class="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-7 text-rose-800">علت رد: {{ job.rejection_reason }}</p>

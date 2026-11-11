@@ -17,7 +17,7 @@ from .dates import (
     jalali_year_span,
 )
 from .geo import OUTSIDE_IRAN, in_iran
-from .models import Booking, City, Profile, Service, WorkerProfile
+from .models import Booking, City, Service, User
 from .utils import normalize_phone
 
 INPUT_CLASS = (
@@ -166,14 +166,13 @@ class PasswordToggleInput(forms.PasswordInput):
 
 
 class RegisterForm(forms.Form):
-    first_name = forms.CharField(label='نام', max_length=50)
-    last_name = forms.CharField(label='نام خانوادگی', max_length=50)
+    name = forms.CharField(label='نام', max_length=150)
     phone = forms.CharField(label='شماره موبایل', max_length=20)
     password = forms.CharField(label='رمز عبور', widget=PasswordToggleInput)
     password2 = forms.CharField(label='تکرار رمز عبور', widget=PasswordToggleInput)
     role = forms.ChoiceField(
         label='نقش',
-        choices=[item for item in Profile.ROLE_CHOICES if item[0] != Profile.ADMIN],
+        choices=[item for item in User.ROLE_CHOICES if item[0] != User.ADMIN],
     )
 
     def __init__(self, *args, **kwargs):
@@ -191,6 +190,12 @@ class RegisterForm(forms.Form):
             raise forms.ValidationError('این شماره قبلاً ثبت شده است.')
         return phone
 
+    def clean_name(self):
+        name = self.cleaned_data['name'].strip()
+        if not name:
+            raise forms.ValidationError('نام را وارد کنید.')
+        return name
+
     def clean(self):
         cleaned = super().clean()
         password = cleaned.get('password')
@@ -202,26 +207,21 @@ class RegisterForm(forms.Form):
 
     def save(self):
         data = self.cleaned_data
-        first_name = data['first_name'].strip()
-        last_name = data['last_name'].strip()
         user = get_user_model().objects.create_user(
             username=data['phone'],
             password=data['password'],
-            first_name=first_name,
-            last_name=last_name,
-            name=f'{first_name} {last_name}'.strip(),
+            name=data['name'],
+            role=data['role'],
+            phone=data['phone'],
         )
-        Profile.objects.create(user=user, role=data['role'], phone=data['phone'])
-        if data['role'] == Profile.WORKER:
-            WorkerProfile.objects.create(user=user)
         return user
 
 
 class AdminAccountForm(forms.Form):
     role = forms.ChoiceField(
         label='نقش',
-        choices=[item for item in Profile.ROLE_CHOICES if item[0] != Profile.ADMIN],
-        initial=Profile.FARMER,
+        choices=[item for item in User.ROLE_CHOICES if item[0] != User.ADMIN],
+        initial=User.FARMER,
     )
     name = forms.CharField(label='نام', max_length=150)
     username = forms.CharField(label='نام کاربری', max_length=20)
@@ -292,11 +292,11 @@ class AdminAccountForm(forms.Form):
         if password and cleaned.get('password2') and password != cleaned.get('password2'):
             self.add_error('password2', 'تکرار رمز عبور یکسان نیست.')
         role = cleaned.get('role')
-        if role == Profile.WORKER:
+        if role == User.WORKER:
             for name in self.farmer_fields:
                 self.errors.pop(name, None)
             self._clean_worker(cleaned)
-        elif role == Profile.FARMER:
+        elif role == User.FARMER:
             for name in self.worker_fields:
                 self.errors.pop(name, None)
             self._clean_farmer(cleaned)
@@ -335,33 +335,28 @@ class AdminAccountForm(forms.Form):
     def save(self, created_by=None):
         data = self.cleaned_data
         name = data['name']
-        parts = name.split()
         user = get_user_model().objects.create_user(
             username=data['username'],
             password=data['password'],
-            first_name=parts[0],
-            last_name=' '.join(parts[1:]),
             name=name,
+            role=data['role'],
+            phone=data['username'],
+            created_by=created_by,
         )
-        profile = Profile.objects.create(
-            user=user, role=data['role'], phone=data['username'], created_by=created_by,
-        )
-        if data['role'] == Profile.WORKER:
-            worker = WorkerProfile.objects.create(
-                user=user,
-                bio=data['bio'],
-                experience_years=data['experience_years'],
-                daily_wage=data['daily_wage'],
-                is_active=bool(data.get('is_active')),
-            )
-            worker.services.set(data['services'])
-            worker.cities.set(data['cities'])
+        if data['role'] == User.WORKER:
+            user.bio = data['bio']
+            user.experience_years = data['experience_years']
+            user.daily_wage = data['daily_wage']
+            user.accepts_jobs = bool(data.get('is_active'))
+            user.save(update_fields=['bio', 'experience_years', 'daily_wage', 'accepts_jobs'])
+            user.services.set(data['services'])
+            user.cities.set(data['cities'])
         else:
-            profile.farm_city = data['farm_city']
-            profile.farm_address = data['farm_address']
-            profile.farm_latitude = data.get('farm_latitude')
-            profile.farm_longitude = data.get('farm_longitude')
-            profile.save()
+            user.farm_city = data['farm_city']
+            user.farm_address = data['farm_address']
+            user.farm_latitude = data.get('farm_latitude')
+            user.farm_longitude = data.get('farm_longitude')
+            user.save(update_fields=['farm_city', 'farm_address', 'farm_latitude', 'farm_longitude'])
         return user
 
 
@@ -476,7 +471,7 @@ class BookForm(OrderRequestForm):
 
 class FarmerProfileForm(forms.ModelForm):
     class Meta:
-        model = Profile
+        model = User
         fields = ['farm_city', 'farm_address', 'farm_latitude', 'farm_longitude']
         labels = {
             'farm_city': 'شهر زمین',
@@ -513,13 +508,13 @@ class FarmerProfileForm(forms.ModelForm):
 
 class WorkerSettingsForm(forms.ModelForm):
     class Meta:
-        model = WorkerProfile
-        fields = ['bio', 'experience_years', 'daily_wage', 'is_active']
+        model = User
+        fields = ['bio', 'experience_years', 'daily_wage', 'accepts_jobs']
         labels = {
             'bio': 'درباره تجربه کاری',
             'experience_years': 'سابقه کار (سال)',
             'daily_wage': 'دستمزد روزانه (تومان)',
-            'is_active': 'آماده دریافت کار هستم',
+            'accepts_jobs': 'آماده دریافت کار هستم',
         }
         help_texts = {
             'daily_wage': 'صفر یعنی دستمزد توافقی است.',
@@ -530,13 +525,13 @@ class WorkerSettingsForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
-            if name != 'is_active':
+            if name != 'accepts_jobs':
                 field.widget.attrs['class'] = INPUT_CLASS
         self.fields['bio'].widget.attrs['minlength'] = '10'
         self.fields['bio'].widget.attrs['class'] += ' min-h-32 resize-y'
         self.fields['daily_wage'].widget.attrs.update({'dir': 'ltr', 'min': '0'})
         self.fields['experience_years'].widget.attrs.update({'dir': 'ltr', 'min': '0', 'max': '60'})
-        self.fields['is_active'].widget.attrs['class'] = 'h-5 w-5 accent-teal-600'
+        self.fields['accepts_jobs'].widget.attrs['class'] = 'h-5 w-5 accent-teal-600'
 
     def clean_bio(self):
         bio = self.cleaned_data['bio'].strip()

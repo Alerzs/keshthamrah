@@ -57,7 +57,7 @@ class MarketplaceFlowTests(TestCase):
 
         mashhad = City.objects.get(name='مشهد')
         shiraz = City.objects.get(name='شیراز')
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         profile.farm_city = mashhad
         profile.farm_address = 'جاده کلات، کیلومتر ۱۲، قطعه نمونه'
         profile.save()
@@ -86,7 +86,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertContains(listing, profile.farm_address)
         self.assertNotContains(listing, 'حسین کریمی')
 
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         service = Service.objects.get(slug='wheat-harvest')
         booked = self.client.post(reverse('book', args=[worker.pk]), {
             'service': service.pk,
@@ -102,12 +102,12 @@ class MarketplaceFlowTests(TestCase):
     def test_farmer_can_book_matching_worker(self):
         self.client.login(username='09121111111', password='demo1234')
         city = City.objects.get(name='مشهد')
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         profile.farm_city = city
         profile.farm_address = 'جاده کلات، کیلومتر ۱۲، قطعه نمونه'
         profile.save()
         service = Service.objects.get(slug='wheat-harvest')
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         response = self.client.post(reverse('book', args=[worker.pk]), {
             'service': service.pk,
             'city': city.pk,
@@ -123,7 +123,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(booking.worker, worker)
 
     def test_admin_cannot_book_a_worker(self):
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         book_url = reverse('book', args=[worker.pk])
         self.client.login(username='09124444444', password='demo1234')
         detail = self.client.get(reverse('worker_detail', args=[worker.pk]))
@@ -189,13 +189,13 @@ class MarketplaceFlowTests(TestCase):
 
     def test_worker_cannot_book(self):
         self.client.login(username='09130000001', password='demo1234')
-        other = User.objects.get(username='09130000002').worker
+        other = User.objects.get(username='09130000002')
         response = self.client.get(reverse('book', args=[other.pk]))
         self.assertRedirects(response, reverse('home'))
 
     def test_worker_cannot_start_a_service_request_from_home(self):
         self.client.login(username='09130000001', password='demo1234')
-        other = User.objects.get(username='09130000002').worker
+        other = User.objects.get(username='09130000002')
         home = self.client.get(reverse('home'))
         self.assertNotContains(home, reverse('order', args=['wheat-harvest']))
         self.assertContains(home, 'ثبت درخواست جدید برای صاحبان زمین است')
@@ -229,11 +229,11 @@ class MarketplaceFlowTests(TestCase):
 
     def test_incomplete_farmer_is_sent_to_profile(self):
         self.client.login(username='09121111111', password='demo1234')
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         response = self.client.get(reverse('book', args=[worker.pk]))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse('farmer_profile'), response['Location'])
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         self.assertEqual(profile.completion_percent, 50)
         response = self.client.post(reverse('farmer_profile'), {
             'farm_city': City.objects.get(name='مشهد').pk,
@@ -246,10 +246,10 @@ class MarketplaceFlowTests(TestCase):
     def _book_sample(self):
         farmer = User.objects.get(username='09121111111')
         city = City.objects.get(name='مشهد')
-        farmer.profile.farm_city = city
-        farmer.profile.farm_address = 'جاده کلات، کیلومتر ۱۲، قطعه نمونه'
-        farmer.profile.save()
-        worker_profile = User.objects.get(username='09130000001').worker
+        farmer.farm_city = city
+        farmer.farm_address = 'جاده کلات، کیلومتر ۱۲، قطعه نمونه'
+        farmer.save()
+        worker_profile = User.objects.get(username='09130000001')
         self.client.login(username='09121111111', password='demo1234')
         self.client.post(reverse('book', args=[worker_profile.pk]), {
             'service': Service.objects.get(slug='wheat-harvest').pk,
@@ -346,7 +346,7 @@ class MarketplaceFlowTests(TestCase):
             'farm_longitude': '59.606700',
         })
         self.assertRedirects(response, reverse('home'))
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         self.assertTrue(profile.has_farm_location)
         self.assertEqual(profile.farm_latitude, Decimal('36.297200'))
         self.assertEqual(profile.farm_longitude, Decimal('59.606700'))
@@ -381,7 +381,7 @@ class MarketplaceFlowTests(TestCase):
         })
         self.assertEqual(outside.status_code, 200)
         self.assertContains(outside, 'خارج از مرزهای ایران')
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         self.assertFalse(profile.has_farm_location)
         coast = self.client.post(reverse('farmer_profile'), {
             'farm_city': city.pk,
@@ -417,12 +417,12 @@ class MarketplaceFlowTests(TestCase):
         year, month, day = jalali_parts(work_date)
         self.client.login(username='09121111111', password='demo1234')
         city = City.objects.get(name='مشهد')
-        profile = User.objects.get(username='09121111111').profile
+        profile = User.objects.get(username='09121111111')
         profile.farm_city = city
         profile.farm_address = 'جاده کلات، کیلومتر ۱۲، قطعه نمونه'
         profile.save()
         service = Service.objects.get(slug='wheat-harvest')
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         booked = self.client.post(reverse('book', args=[worker.pk]), {
             'service': service.pk,
             'city': city.pk,
@@ -465,7 +465,7 @@ class MarketplaceFlowTests(TestCase):
 
     def test_clicking_a_person_opens_their_profile(self):
         farmer = User.objects.get(username='09121111111')
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         farmer_url = reverse('farmer_public', args=[farmer.pk])
         worker_url = reverse('worker_detail', args=[worker.pk])
 
@@ -473,7 +473,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertContains(public_page, 'سامان کریمی')
         self.assertContains(public_page, 'صاحب زمین')
         self.assertNotContains(public_page, '۰۹۱۲۱۱۱۱۱۱۱')
-        self.assertEqual(self.client.get(reverse('farmer_public', args=[worker.user.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('farmer_public', args=[worker.pk])).status_code, 404)
 
         home = self.client.get(reverse('home'))
         featured = home.context['featured_workers'][0]
@@ -578,7 +578,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertContains(still_review, 'در این مرحله سفارشی نیست')
 
     def test_guest_booking_goes_to_login(self):
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         response = self.client.get(reverse('book', args=[worker.pk]))
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response['Location'])
@@ -608,16 +608,16 @@ class MarketplaceFlowTests(TestCase):
         self.assertRedirects(created_worker, reverse('admin_panel'))
         worker_user = User.objects.get(username='09125556677')
         self.assertEqual(worker_user.name, 'علی رضایی')
-        self.assertEqual(worker_user.profile.role, 'worker')
-        self.assertEqual(worker_user.profile.phone, '09125556677')
+        self.assertEqual(worker_user.role, 'worker')
+        self.assertEqual(worker_user.phone, '09125556677')
         self.assertTrue(worker_user.check_password('workerpass'))
-        self.assertEqual(worker_user.worker.experience_years, 8)
-        self.assertEqual(worker_user.worker.daily_wage, 900000)
-        self.assertTrue(worker_user.worker.services.filter(pk=service.pk).exists())
-        self.assertTrue(worker_user.worker.cities.filter(pk=city.pk).exists())
-        self.assertEqual(worker_user.profile.completion_percent, 100)
+        self.assertEqual(worker_user.experience_years, 8)
+        self.assertEqual(worker_user.daily_wage, 900000)
+        self.assertTrue(worker_user.services.filter(pk=service.pk).exists())
+        self.assertTrue(worker_user.cities.filter(pk=city.pk).exists())
+        self.assertEqual(worker_user.completion_percent, 100)
         admin = User.objects.get(username='09124444444')
-        self.assertEqual(worker_user.profile.created_by, admin)
+        self.assertEqual(worker_user.created_by, admin)
         listing = self.client.get(reverse('workers'), {'service': 'wheat-harvest', 'city': city.pk})
         self.assertContains(listing, 'علی رضایی')
 
@@ -634,13 +634,14 @@ class MarketplaceFlowTests(TestCase):
         })
         self.assertRedirects(created_farmer, reverse('admin_panel'))
         farmer_user = User.objects.get(username='09128887766')
-        self.assertEqual(farmer_user.profile.role, 'farmer')
-        self.assertEqual(farmer_user.profile.farm_city, city)
-        self.assertEqual(farmer_user.profile.farm_address, 'جاده کلات، کیلومتر ۲۰، قطعه شمالی')
-        self.assertTrue(farmer_user.profile.has_farm_location)
-        self.assertEqual(farmer_user.profile.completion_percent, 100)
-        self.assertEqual(farmer_user.profile.created_by, admin)
-        self.assertFalse(hasattr(farmer_user, 'worker') and farmer_user.worker.pk)
+        self.assertEqual(farmer_user.role, 'farmer')
+        self.assertEqual(farmer_user.farm_city, city)
+        self.assertEqual(farmer_user.farm_address, 'جاده کلات، کیلومتر ۲۰، قطعه شمالی')
+        self.assertTrue(farmer_user.has_farm_location)
+        self.assertEqual(farmer_user.completion_percent, 100)
+        self.assertEqual(farmer_user.created_by, admin)
+        self.assertEqual(farmer_user.role, 'farmer')
+        self.assertFalse(farmer_user.services.exists())
         people = self.client.get(reverse('admin_people'), {'q': '09128887766'})
         self.assertContains(people, 'ثبت‌شده توسط لیلا احمدی')
         workers_page = self.client.get(reverse('admin_people'), {'role': 'worker', 'q': '09125556677'})
@@ -658,10 +659,10 @@ class MarketplaceFlowTests(TestCase):
         })
         self.assertRedirects(worker, reverse('admin_panel'))
         worker_user = User.objects.get(username='09120000000')
-        self.assertEqual(worker_user.worker.bio, '')
-        self.assertFalse(worker_user.worker.services.exists())
-        self.assertFalse(worker_user.worker.cities.exists())
-        self.assertLess(worker_user.profile.completion_percent, 100)
+        self.assertEqual(worker_user.bio, '')
+        self.assertFalse(worker_user.services.exists())
+        self.assertFalse(worker_user.cities.exists())
+        self.assertLess(worker_user.completion_percent, 100)
 
         farmer = self.client.post(reverse('admin_create_account'), {
             'role': 'farmer',
@@ -672,9 +673,9 @@ class MarketplaceFlowTests(TestCase):
         })
         self.assertRedirects(farmer, reverse('admin_panel'))
         farmer_user = User.objects.get(username='09121110000')
-        self.assertIsNone(farmer_user.profile.farm_city)
-        self.assertEqual(farmer_user.profile.farm_address, 'کوتاه')
-        self.assertLess(farmer_user.profile.completion_percent, 100)
+        self.assertIsNone(farmer_user.farm_city)
+        self.assertEqual(farmer_user.farm_address, 'کوتاه')
+        self.assertLess(farmer_user.completion_percent, 100)
 
         mismatch = self.client.post(reverse('admin_create_account'), {
             'role': 'farmer',
@@ -808,7 +809,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertContains(kept, 'page=2')
 
         farmer = User.objects.get(username='09121111111')
-        worker = User.objects.get(username='09130000001').worker
+        worker = User.objects.get(username='09130000001')
         service = Service.objects.get(slug='wheat-harvest')
         city = City.objects.get(name='مشهد')
         created = timezone.now()
@@ -992,18 +993,18 @@ class MarketplaceFlowTests(TestCase):
 
         from openpyxl import load_workbook
 
-        guest = self.client.get(reverse('admin:marketplace_profile_export'))
+        guest = self.client.get(reverse('admin:marketplace_user_export'))
         self.assertEqual(guest.status_code, 302)
         self.assertIn('/admin/login/', guest['Location'])
 
         self.client.login(username='09121111111', password='demo1234')
-        self.assertEqual(self.client.get(reverse('admin:marketplace_profile_changelist')).status_code, 302)
+        self.assertEqual(self.client.get(reverse('admin:marketplace_user_changelist')).status_code, 302)
         self.client.logout()
 
         self.client.login(username='admin', password='demo1234')
-        page = self.client.get(reverse('admin:marketplace_profile_changelist'))
+        page = self.client.get(reverse('admin:marketplace_user_changelist'))
         self.assertContains(page, 'خروجی اکسل')
-        export_url = reverse('admin:marketplace_profile_export')
+        export_url = reverse('admin:marketplace_user_export')
         self.assertContains(page, export_url)
 
         response = self.client.get(export_url)
@@ -1036,3 +1037,187 @@ class MarketplaceFlowTests(TestCase):
         }
         self.assertIn('رضا محمدی', searched_names)
         self.assertNotIn('سامان کریمی', searched_names)
+
+    def test_django_admin_shows_the_unified_account(self):
+        self.client.login(username='admin', password='demo1234')
+        worker = User.objects.get(username='09130000001')
+        change = self.client.get(reverse('admin:marketplace_user_change', args=[worker.pk]))
+        self.assertEqual(change.status_code, 200)
+        self.assertContains(change, 'زمین')
+        self.assertContains(change, 'سرویس‌دهنده')
+        self.assertContains(change, 'حوزه کاری')
+        self.assertContains(change, worker.bio[:24])
+        self.assertNotContains(change, 'id_email')
+        creator_select = change.content.decode().split('id="id_created_by"', 1)[1].split('</select>', 1)[0]
+        self.assertIn('لیلا احمدی', creator_select)
+        self.assertNotIn('رضا محمدی', creator_select)
+        self.assertNotIn('سامان کریمی', creator_select)
+
+        add = self.client.get(reverse('admin:marketplace_user_add'))
+        self.assertEqual(add.status_code, 200)
+        self.assertContains(add, 'نقش')
+        self.assertContains(add, 'آماده دریافت کار')
+
+        listing = self.client.get(reverse('admin:marketplace_user_changelist'))
+        self.assertContains(listing, 'نقش')
+        self.assertContains(listing, 'دستمزد روزانه')
+
+        booking_add = self.client.get(reverse('admin:marketplace_booking_add'))
+        self.assertEqual(booking_add.status_code, 200)
+        html = booking_add.content.decode()
+        farmer_select = html.split('id="id_farmer"', 1)[1].split('</select>', 1)[0]
+        worker_select = html.split('id="id_worker"', 1)[1].split('</select>', 1)[0]
+        self.assertIn('سامان کریمی', farmer_select)
+        self.assertNotIn('رضا محمدی', farmer_select)
+        self.assertIn('رضا محمدی', worker_select)
+        self.assertNotIn('سامان کریمی', worker_select)
+
+        review_add = self.client.get(reverse('admin:marketplace_review_add'))
+        self.assertEqual(review_add.status_code, 200)
+        review_html = review_add.content.decode()
+        self.assertIn('رضا محمدی', review_html.split('id="id_worker"', 1)[1].split('</select>', 1)[0])
+
+
+class LegacyUserImportTests(TestCase):
+    def test_copies_old_user_tables_into_the_unified_user(self):
+        import sqlite3
+        import tempfile
+
+        from marketplace.models import Category
+
+        category = Category.objects.create(name='کاشت', slug='planting', description='کاشت')
+        city = City.objects.create(name='مشهد', province='خراسان رضوی')
+        service = Service.objects.create(
+            category=category, name='برداشت گندم', slug='wheat-harvest', description='برداشت',
+        )
+        with tempfile.NamedTemporaryFile(suffix='.sqlite3', delete=False) as handle:
+            source = handle.name
+        raw = sqlite3.connect(source)
+        raw.executescript(
+            '''
+            CREATE TABLE auth_user (
+                id integer primary key,
+                password varchar(128),
+                last_login datetime,
+                is_superuser bool,
+                username varchar(150) unique,
+                first_name varchar(150),
+                last_name varchar(150),
+                email varchar(254),
+                is_staff bool,
+                is_active bool,
+                date_joined datetime,
+                name varchar(150)
+            );
+            CREATE TABLE marketplace_profile (
+                id integer primary key,
+                user_id integer,
+                role varchar(10),
+                phone varchar(11),
+                farm_city_id integer,
+                farm_address varchar(255),
+                farm_latitude decimal,
+                farm_longitude decimal,
+                created_by_id integer
+            );
+            CREATE TABLE marketplace_workerprofile (
+                id integer primary key,
+                user_id integer,
+                bio text,
+                experience_years integer,
+                daily_wage integer,
+                rating decimal,
+                review_count integer,
+                jobs_done integer,
+                is_verified bool,
+                is_active bool
+            );
+            CREATE TABLE marketplace_workerprofile_services (
+                id integer primary key,
+                workerprofile_id integer,
+                service_id integer
+            );
+            CREATE TABLE marketplace_workerprofile_cities (
+                id integer primary key,
+                workerprofile_id integer,
+                city_id integer
+            );
+            '''
+        )
+        raw.executemany(
+            '''
+            INSERT INTO auth_user (
+                id, password, last_login, is_superuser, username, first_name, last_name,
+                email, is_staff, is_active, date_joined, name
+            ) VALUES (?, ?, NULL, 0, ?, ?, ?, '', 0, 1, '2026-01-01 08:00:00', ?)
+            ''',
+            [
+                (1, 'hashed-farmer', '09120000001', 'سامان', 'کریمی', 'سامان کریمی'),
+                (2, 'hashed-worker', '09120000002', 'رضا', 'محمدی', ''),
+                (3, 'hashed-short', '09120000003', 'لیلا', '', 'لیلا احمدی'),
+            ],
+        )
+        raw.execute(
+            '''
+            INSERT INTO marketplace_profile (
+                id, user_id, role, phone, farm_city_id, farm_address, farm_latitude, farm_longitude, created_by_id
+            ) VALUES (1, 1, 'farmer', '09120000001', ?, 'جاده کلات، قطعه یک', '36.297200', '59.606700', 3)
+            ''',
+            (city.pk,),
+        )
+        raw.execute(
+            '''
+            INSERT INTO marketplace_profile (id, user_id, role, phone, farm_address, created_by_id)
+            VALUES (2, 2, 'worker', '09120000002', '', 1)
+            '''
+        )
+        raw.execute(
+            '''
+            INSERT INTO marketplace_profile (id, user_id, role, phone, farm_address)
+            VALUES (3, 3, 'admin', '09120000003', '')
+            '''
+        )
+        raw.execute(
+            '''
+            INSERT INTO marketplace_workerprofile (
+                id, user_id, bio, experience_years, daily_wage, rating, review_count,
+                jobs_done, is_verified, is_active
+            ) VALUES (7, 2, 'برداشت گندم در مشهد', 12, 980000, 4.5, 3, 20, 1, 0)
+            '''
+        )
+        raw.execute(
+            'INSERT INTO marketplace_workerprofile_services (id, workerprofile_id, service_id) VALUES (1, 7, ?)',
+            (service.pk,),
+        )
+        raw.execute(
+            'INSERT INTO marketplace_workerprofile_cities (id, workerprofile_id, city_id) VALUES (1, 7, ?)',
+            (city.pk,),
+        )
+        raw.commit()
+        raw.close()
+
+        call_command('migrate_legacy_users', source=source)
+
+        farmer = User.objects.get(username='09120000001')
+        worker = User.objects.get(username='09120000002')
+        self.assertEqual(farmer.role, 'farmer')
+        self.assertEqual(farmer.phone, '09120000001')
+        self.assertEqual(farmer.farm_city, city)
+        self.assertEqual(farmer.farm_address, 'جاده کلات، قطعه یک')
+        admin_user = User.objects.get(username='09120000003')
+        self.assertEqual(admin_user.role, 'admin')
+        self.assertEqual(farmer.created_by, admin_user)
+        self.assertIsNone(worker.created_by)
+        self.assertEqual(farmer.password, 'hashed-farmer')
+        self.assertEqual(farmer.name, 'سامان کریمی')
+        self.assertEqual(worker.name, 'رضا محمدی')
+        self.assertEqual(User.objects.get(username='09120000003').name, 'لیلا احمدی')
+        self.assertEqual(worker.role, 'worker')
+        self.assertEqual(worker.bio, 'برداشت گندم در مشهد')
+        self.assertEqual(worker.experience_years, 12)
+        self.assertEqual(worker.daily_wage, 980000)
+        self.assertFalse(worker.accepts_jobs)
+        self.assertTrue(worker.is_verified)
+        self.assertTrue(worker.services.filter(pk=service.pk).exists())
+        self.assertTrue(worker.cities.filter(pk=city.pk).exists())
+

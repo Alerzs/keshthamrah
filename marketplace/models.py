@@ -1,6 +1,8 @@
 from decimal import Decimal
 
-from django.contrib.auth.models import AbstractUser
+from django.apps import apps
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import AbstractUser, UserManager as AuthUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -13,8 +15,70 @@ from .dates import to_jalali
 from .geo import OUTSIDE_IRAN, in_iran
 
 
+class UserManager(AuthUserManager):
+    def _create_user_object(self, username, email, password, **extra_fields):
+        extra_fields.pop('email', None)
+        if not username:
+            raise ValueError('نام کاربری لازم است.')
+        user_model = apps.get_model(self.model._meta.app_label, self.model._meta.object_name)
+        username = user_model.normalize_username(username)
+        user = self.model(username=username, **extra_fields)
+        user.password = make_password(password)
+        return user
+
+
 class User(AbstractUser):
+    first_name = None
+    last_name = None
+    email = None
+
+    objects = UserManager()
+    REQUIRED_FIELDS = []
+
+    FARMER = 'farmer'
+    WORKER = 'worker'
+    ADMIN = 'admin'
+    ROLE_CHOICES = [
+        (FARMER, 'صاحب زمین'),
+        (WORKER, 'سرویس دهنده'),
+        (ADMIN, 'ادمین'),
+    ]
+
     name = models.CharField('نام', max_length=150, blank=True)
+    role = models.CharField('نقش', max_length=10, choices=ROLE_CHOICES, blank=True, default='')
+    phone = models.CharField('موبایل', max_length=11, blank=True, default='')
+    farm_city = models.ForeignKey(
+        'City', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='farmers', verbose_name='شهر زمین',
+    )
+    farm_address = models.CharField('آدرس زمین', max_length=255, blank=True, default='')
+    farm_latitude = models.DecimalField(
+        'عرض جغرافیایی زمین', max_digits=9, decimal_places=6, null=True, blank=True,
+    )
+    farm_longitude = models.DecimalField(
+        'طول جغرافیایی زمین', max_digits=9, decimal_places=6, null=True, blank=True,
+    )
+    created_by = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='created_accounts', verbose_name='ثبت‌کننده',
+        limit_choices_to={'role': ADMIN},
+    )
+    bio = models.TextField('درباره تجربه کاری', blank=True, default='')
+    experience_years = models.PositiveSmallIntegerField(
+        'سابقه (سال)', default=0, validators=[MaxValueValidator(60)],
+    )
+    daily_wage = models.PositiveIntegerField('دستمزد روزانه (تومان)', default=0)
+    rating = models.DecimalField('امتیاز', max_digits=2, decimal_places=1, default=0)
+    review_count = models.PositiveIntegerField('تعداد نظر', default=0)
+    jobs_done = models.PositiveIntegerField('کارهای انجام‌شده', default=0)
+    is_verified = models.BooleanField('هویت تأیید شده', default=False)
+    accepts_jobs = models.BooleanField('آماده دریافت کار', default=True)
+    services = models.ManyToManyField(
+        'Service', blank=True, related_name='workers', verbose_name='حوزه کاری',
+    )
+    cities = models.ManyToManyField(
+        'City', blank=True, related_name='workers', verbose_name='محل کار',
+    )
     groups = models.ManyToManyField(
         'auth.Group',
         verbose_name=_('groups'),
@@ -43,21 +107,102 @@ class User(AbstractUser):
         verbose_name_plural = 'کاربران'
 
     def __str__(self):
-        return self.get_full_name() or self.username
+        label = self.get_full_name() or self.username
+        if self.role:
+            return f'{label} — {self.get_role_display()}'
+        return label
 
     def get_full_name(self):
-        full_name = (self.name or '').strip()
-        return full_name or super().get_full_name()
+        return (self.name or '').strip()
 
-    def save(self, *args, **kwargs):
-        update_fields = kwargs.get('update_fields')
-        if not (self.name or '').strip():
-            combined = super().get_full_name().strip()
-            if combined:
-                self.name = combined
-                if update_fields is not None:
-                    kwargs['update_fields'] = set(update_fields) | {'name'}
-        super().save(*args, **kwargs)
+    def get_short_name(self):
+        return self.get_full_name() or self.get_username()
+
+    def clean(self):
+        super().clean()
+        if self.created_by_id and getattr(self.created_by, 'role', None) != self.ADMIN:
+            raise ValidationError({'created_by': 'ثبت‌کننده باید ادمین باشد.'})
+        lat = self.farm_latitude
+        lng = self.farm_longitude
+        if lat is None and lng is None:
+            return
+        if lat is None or lng is None:
+            raise ValidationError('برای ثبت موقعیت روی نقشه، عرض و طول جغرافیایی را با هم مشخص کنید.')
+        if not in_iran(lat, lng):
+            raise ValidationError({'farm_latitude': OUTSIDE_IRAN})
+
+    @property
+    def has_farm_location(self):
+        return self.farm_latitude is not None and self.farm_longitude is not None
+
+    @property
+    def has_saved_farm(self):
+        return bool(self.farm_city_id) and len((self.farm_address or '').strip()) >= 8
+
+    @property
+    def initials(self):
+        parts = (self.name or '').split()
+        if not parts:
+            return 'ک'
+        first = parts[0][:1]
+        last = parts[1][:1] if len(parts) > 1 else ''
+        return f'{first}{last}'
+
+    @property
+    def avatar_class(self):
+        palette = [
+            'bg-teal-600',
+            'bg-emerald-600',
+            'bg-cyan-700',
+            'bg-lime-700',
+            'bg-amber-600',
+            'bg-orange-600',
+            'bg-sky-700',
+            'bg-green-700',
+        ]
+        return palette[(self.pk or 0) % len(palette)]
+
+    def completion_steps(self):
+        if self.role == self.FARMER:
+            pairs = [
+                ('نام', bool((self.name or '').strip())),
+                ('شماره موبایل', bool(self.phone)),
+                ('شهر زمین', bool(self.farm_city_id)),
+                ('آدرس دقیق زمین', len((self.farm_address or '').strip()) >= 8),
+            ]
+        elif self.role == self.WORKER:
+            pairs = [
+                ('نام', bool((self.name or '').strip())),
+                ('شماره موبایل', bool(self.phone)),
+                ('توضیح تجربه کاری', len((self.bio or '').strip()) >= 10),
+                ('حوزه کاری', self.services.exists()),
+                ('شهرهای محل کار', self.cities.exists()),
+            ]
+        else:
+            pairs = [
+                ('نام', bool((self.name or '').strip())),
+                ('شماره موبایل', bool(self.phone)),
+            ]
+        return [{'label': label, 'done': done} for label, done in pairs]
+
+    @property
+    def completion_percent(self):
+        steps = self.completion_steps()
+        if not steps:
+            return 100
+        done = sum(1 for step in steps if step['done'])
+        return round(100 * done / len(steps))
+
+    @property
+    def is_profile_complete(self):
+        return self.completion_percent == 100
+
+    def refresh_rating(self):
+        data = self.reviews.aggregate(avg=Avg('rating'), total=Count('id'))
+        average = data['avg'] or 0
+        self.rating = Decimal(str(round(average, 1)))
+        self.review_count = data['total'] or 0
+        self.save(update_fields=['rating', 'review_count'])
 
 
 class City(models.Model):
@@ -118,158 +263,6 @@ class Service(models.Model):
         return reverse('order', args=[self.slug])
 
 
-class Profile(models.Model):
-    FARMER = 'farmer'
-    WORKER = 'worker'
-    ADMIN = 'admin'
-    ROLE_CHOICES = [
-        (FARMER, 'صاحب زمین'),
-        (WORKER, 'سرویس دهنده'),
-        (ADMIN, 'ادمین'),
-    ]
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField('نقش', max_length=10, choices=ROLE_CHOICES)
-    phone = models.CharField('موبایل', max_length=11)
-    farm_city = models.ForeignKey(
-        City, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='farmers', verbose_name='شهر زمین',
-    )
-    farm_address = models.CharField('آدرس زمین', max_length=255, blank=True)
-    farm_latitude = models.DecimalField(
-        'عرض جغرافیایی زمین', max_digits=9, decimal_places=6, null=True, blank=True,
-    )
-    farm_longitude = models.DecimalField(
-        'طول جغرافیایی زمین', max_digits=9, decimal_places=6, null=True, blank=True,
-    )
-    created_by = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='created_accounts', verbose_name='ثبت‌کننده',
-    )
-
-    class Meta:
-        verbose_name = 'پروفایل'
-        verbose_name_plural = 'پروفایل‌ها'
-
-    def __str__(self):
-        return f'{self.user.get_full_name()} — {self.get_role_display()}'
-
-    def clean(self):
-        super().clean()
-        lat = self.farm_latitude
-        lng = self.farm_longitude
-        if lat is None and lng is None:
-            return
-        if lat is None or lng is None:
-            raise ValidationError('برای ثبت موقعیت روی نقشه، عرض و طول جغرافیایی را با هم مشخص کنید.')
-        if not in_iran(lat, lng):
-            raise ValidationError({'farm_latitude': OUTSIDE_IRAN})
-
-    @property
-    def has_farm_location(self):
-        return self.farm_latitude is not None and self.farm_longitude is not None
-
-    @property
-    def has_saved_farm(self):
-        return bool(self.farm_city_id) and len((self.farm_address or '').strip()) >= 8
-
-    @property
-    def initials(self):
-        parts = (self.user.name or '').split()
-        if not parts:
-            parts = [self.user.first_name, self.user.last_name]
-            parts = [part for part in parts if part]
-        if not parts:
-            return 'ک'
-        first = parts[0][:1]
-        last = parts[1][:1] if len(parts) > 1 else ''
-        return f'{first}{last}'
-
-    @property
-    def avatar_class(self):
-        palette = [
-            'bg-teal-600',
-            'bg-emerald-600',
-            'bg-cyan-700',
-            'bg-lime-700',
-            'bg-amber-600',
-            'bg-orange-600',
-            'bg-sky-700',
-            'bg-green-700',
-        ]
-        return palette[(self.pk or 0) % len(palette)]
-
-    def completion_steps(self):
-        user = self.user
-        if self.role == self.FARMER:
-            pairs = [
-                ('نام و نام خانوادگی', bool((user.name or '').strip())),
-                ('شماره موبایل', bool(self.phone)),
-                ('شهر زمین', bool(self.farm_city_id)),
-                ('آدرس دقیق زمین', len((self.farm_address or '').strip()) >= 8),
-            ]
-        elif self.role == self.WORKER:
-            worker = getattr(user, 'worker', None)
-            pairs = [
-                ('نام و نام خانوادگی', bool((user.name or '').strip())),
-                ('شماره موبایل', bool(self.phone)),
-                ('توضیح تجربه کاری', bool(worker and len((worker.bio or '').strip()) >= 10)),
-                ('حوزه کاری', bool(worker and worker.services.exists())),
-                ('شهرهای محل کار', bool(worker and worker.cities.exists())),
-            ]
-        else:
-            pairs = [
-                ('نام و نام خانوادگی', bool((user.name or '').strip())),
-                ('شماره موبایل', bool(self.phone)),
-            ]
-        return [{'label': label, 'done': done} for label, done in pairs]
-
-    @property
-    def completion_percent(self):
-        steps = self.completion_steps()
-        if not steps:
-            return 100
-        done = sum(1 for step in steps if step['done'])
-        return round(100 * done / len(steps))
-
-    @property
-    def is_profile_complete(self):
-        return self.completion_percent == 100
-
-
-class WorkerProfile(models.Model):
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name='worker', verbose_name='کاربر',
-    )
-    bio = models.TextField('درباره تجربه کاری', blank=True)
-    experience_years = models.PositiveSmallIntegerField(
-        'سابقه (سال)', default=0, validators=[MaxValueValidator(60)],
-    )
-    daily_wage = models.PositiveIntegerField('دستمزد روزانه (تومان)', default=0)
-    rating = models.DecimalField('امتیاز', max_digits=2, decimal_places=1, default=0)
-    review_count = models.PositiveIntegerField('تعداد نظر', default=0)
-    jobs_done = models.PositiveIntegerField('کارهای انجام‌شده', default=0)
-    is_verified = models.BooleanField('هویت تأیید شده', default=False)
-    is_active = models.BooleanField('آماده دریافت کار', default=True)
-    services = models.ManyToManyField(Service, blank=True, related_name='workers', verbose_name='حوزه کاری')
-    cities = models.ManyToManyField(City, blank=True, related_name='workers', verbose_name='محل کار')
-
-    class Meta:
-        verbose_name = 'پروفایل سرویس دهنده'
-        verbose_name_plural = 'پروفایل سرویس دهندگان'
-        ordering = ['-rating', '-jobs_done']
-
-    def __str__(self):
-        return self.user.get_full_name() or self.user.profile.phone
-
-    def refresh_rating(self):
-        data = self.reviews.aggregate(avg=Avg('rating'), total=Count('id'))
-        average = data['avg'] or 0
-        self.rating = Decimal(str(round(average, 1)))
-        self.review_count = data['total'] or 0
-        self.save(update_fields=['rating', 'review_count'])
-
-
 class Booking(models.Model):
     PENDING = 'pending'
     CONFIRMED = 'confirmed'
@@ -295,7 +288,7 @@ class Booking(models.Model):
         User, on_delete=models.CASCADE, related_name='bookings', verbose_name='صاحب زمین',
     )
     worker = models.ForeignKey(
-        WorkerProfile, on_delete=models.CASCADE, related_name='jobs', verbose_name='سرویس دهنده',
+        User, on_delete=models.CASCADE, related_name='jobs', verbose_name='سرویس دهنده',
     )
     service = models.ForeignKey(
         Service, on_delete=models.PROTECT, related_name='bookings', verbose_name='خدمت',
@@ -407,10 +400,10 @@ class Review(models.Model):
     booking = models.OneToOneField(
         Booking, null=True, blank=True, on_delete=models.CASCADE, related_name='review',
     )
-    worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name='reviews')
+    worker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews', verbose_name='سرویس دهنده')
     farmer = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='reviews', verbose_name='صاحب زمین',
-        limit_choices_to={'profile__role': Profile.FARMER},
+        User, on_delete=models.CASCADE, related_name='given_reviews', verbose_name='صاحب زمین',
+        limit_choices_to={'role': User.FARMER},
     )
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField()
