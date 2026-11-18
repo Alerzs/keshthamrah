@@ -1,0 +1,46 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+
+{% block title %}دیوار من{% endblock %}
+{% block body_class %} wall-mode{% endblock %}
+
+{% block content %}
+{% include "marketplace/wall/partials/bar.html" %}
+<section class="bg-white">
+  <div class="mx-auto max-w-3xl px-4 py-6">
+    <div class="flex items-end justify-between gap-3">
+      <h1 class="text-2xl text-[#161616]">دیوار من</h1>
+      <a class="wall-post gap-1.5 px-4 py-2 text-sm" href="{% url 'wall_new' %}">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        آگهی جدید
+      </a>
+    </div>
+
+    {% if ads %}
+      <div class="mt-4">
+        {% for ad in ads %}
+          <article class="border-b border-[#f0f0f0]">
+            {% if not ad.is_published %}
+              <div class="mb-1 flex gap-2 pt-3 text-xs">
+                <span class="rounded bg-[#fff4f4] px-2 py-0.5 font-bold text-[#a62626]">مخفی</span>
+              </div>
+            {% endif %}
+            {% include "marketplace/wall/partials/row.html" with ad=ad %}
+            <div class="flex flex-wrap gap-2 pb-4 text-xs font-bold">
+              <a class="rounded-md border border-[#eee] px-3 py-1.5" href="{{ ad.get_absolute_url }}">مشاهده</a>
+              <a class="rounded-md border border-[#eee] px-3 py-1.5" href="{% url 'wall_edit' ad.pk %}">ویرایش</a>
+              <form method="post" action="{% url 'wall_toggle' ad.pk %}">{% csrf_token %}<button type="submit" class="rounded-md border border-[#eee] px-3 py-1.5">{% if ad.is_published %}مخفی کردن{% else %}نمایش{% endif %}</button></form>
+              <form method="post" action="{% url 'wall_delete' ad.pk %}" onsubmit="return confirm('این آگهی حذف شود؟')">{% csrf_token %}<button type="submit" class="rounded-md border border-[#eee] px-3 py-1.5 text-[#a62626]">حذف</button></form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      <p class="mt-4 text-xs text-[#999]">{{ ads|length|fa_digits }} آگهی</p>
+    {% else %}
+      <div class="px-4 py-16 text-center">
+        <p class="text-lg font-bold text-[#222]">هنوز آگهی نچسبانده‌اید</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

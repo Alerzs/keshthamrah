@@ -1,0 +1,57 @@
+{% url 'wall_mine' as wall_mine_url %}
+<div class="sticky top-16 z-30 border-b border-[#ededed] bg-white">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3">
+    {% if city %}
+      <details class="wall-menu relative">
+        <summary class="flex cursor-pointer list-none items-center gap-1 rounded-md px-1 py-1 text-sm font-bold text-[#222]">
+          {{ city.name }}
+          <svg class="h-4 w-4 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="absolute start-0 z-30 mt-2 max-h-80 w-64 overflow-auto rounded-xl border border-[#eee] bg-white py-1 shadow-lg">
+          {% for item in nav_cities %}
+            <a class="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-[#fafafa] {% if item.pk == city.pk %}font-bold text-[#a62626]{% endif %}" href="{% url 'wall_city' item.pk %}">
+              <span>{{ item.name }}</span>
+              <span class="text-xs text-[#999]">{{ item.province }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </details>
+      <form class="relative order-last min-w-full flex-1 md:order-none md:min-w-[12rem]" method="get" action="{% url 'wall_city' city.pk %}">
+        {% if current_category %}<input type="hidden" name="cat" value="{{ current_category.slug }}">{% endif %}
+        {% if district %}<input type="hidden" name="district" value="{{ district }}">{% endif %}
+        {% if min_price %}<input type="hidden" name="min_price" value="{{ min_price }}">{% endif %}
+        {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}">{% endif %}
+        {% if photo %}<input type="hidden" name="photo" value="1">{% endif %}
+        {% if sort and sort != 'new' %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+        <label class="sr-only" for="wall-q">جستجو در آگهی‌ها</label>
+        <input id="wall-q" type="search" name="q" value="{{ query }}" placeholder="جستجو در همهٔ آگهی‌ها" class="w-full rounded-lg bg-[#f2f2f2] py-2.5 pe-4 ps-11 text-sm text-[#222] outline-none placeholder:text-[#9a9a9a]">
+        <button type="submit" class="absolute start-3 top-1/2 -translate-y-1/2 text-[#888]" aria-label="جستجو">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+        </button>
+      </form>
+    {% else %}
+      <span class="flex-1"></span>
+    {% endif %}
+    {% if not is_admin %}
+      {% if request.user.is_authenticated %}
+        <a href="{{ wall_mine_url }}" class="inline-flex items-center gap-1 px-1 text-sm font-bold text-[#a62626]">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.5-3 4-4.5 7-4.5S17.5 16 19 19"/></svg>
+          <span>دیوار من</span>
+        </a>
+      {% else %}
+        <a href="{% url 'login' %}?next={{ wall_mine_url }}" class="inline-flex items-center gap-1 px-1 text-sm font-bold text-[#a62626]">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.5-3 4-4.5 7-4.5S17.5 16 19 19"/></svg>
+          <span>دیوار من</span>
+        </a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+<script>
+  document.querySelectorAll('details.wall-menu').forEach((menu) => {
+    document.addEventListener('click', (event) => {
+      if (!menu.open || menu.contains(event.target)) return;
+      menu.open = false;
+    });
+  });
+</script>

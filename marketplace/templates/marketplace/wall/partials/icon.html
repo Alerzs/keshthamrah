@@ -1,0 +1,17 @@
+<svg class="{{ svg_class|default:'h-5 w-5' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  {% if slug == 'crops' %}
+    <path d="M12 21V10"/><path d="M12 12.5C9.2 12.2 7 10.4 6.8 8c2.2.3 4.2 1.8 5.2 4.5z"/><path d="M12 11.2c2.2-.5 4.2-2 4.8-4.2-2.4.2-4.2 1.6-4.8 4.2z"/><path d="M5 21h14"/>
+  {% elif slug == 'land' %}
+    <path d="M3 19h18"/><path d="M5 19l2.5-6h9L19 19"/><path d="M8 13l1.2-3h5.6L16 13"/><path d="M12 10V6"/><path d="M12 7.2c-1.6 0-2.6-1-2.6-2.2 1.2.1 2.1.8 2.6 2.2z"/>
+  {% elif slug == 'machinery' %}
+    <circle cx="8" cy="16" r="3"/><circle cx="17" cy="16" r="2.2"/><path d="M11 16h4"/><path d="M5 16H4v-3h6l2-4h5l2 3"/><path d="M8 8h3"/>
+  {% elif slug == 'inputs' %}
+    <path d="M8 9h8l-1 11H9L8 9z"/><path d="M9 9c0-2 1.4-3 3-3s3 1 3 3"/><path d="M10 13h4"/>
+  {% elif slug == 'livestock' %}
+    <circle cx="8" cy="9" r="2"/><circle cx="16" cy="9" r="2"/><path d="M6 19c.6-2.4 2.2-3.6 4-3.6h4c1.8 0 3.4 1.2 4 3.6"/>
+  {% elif slug == 'irrigation' %}
+    <path d="M12 3s5 5.2 5 8.5a5 5 0 0 1-10 0C7 8.2 12 3 12 3z"/>
+  {% else %}
+    <rect x="5" y="5" width="14" height="14" rx="2"/>
+  {% endif %}
+</svg>

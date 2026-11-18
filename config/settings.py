@@ -68,6 +68,10 @@ for host in ALLOWED_HOSTS:
 
 
 AUTH_USER_MODEL = 'marketplace.User'
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'marketplace.backends.AdminBackend',
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -143,6 +147,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 STORAGES = {
     'default': {

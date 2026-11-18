@@ -6,7 +6,7 @@
     {% csrf_token %}
     {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
     <h1 class="text-2xl font-extrabold">ورود</h1>
-    <p class="mt-2 text-sm text-slate-500">با شماره موبایلی که ثبت کرده‌اید وارد شوید.</p>
+    <p class="mt-2 text-sm text-slate-500">کاربران با شماره موبایل وارد می‌شوند. ادمین به جای شماره، نام کاربری را وارد می‌کند.</p>
     {% if form.non_field_errors %}
       <div class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
     {% endif %}

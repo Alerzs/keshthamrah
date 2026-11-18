@@ -1,11 +1,15 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from marketplace.models import Booking, Category, City, Review, Service, User
+from marketplace.models import (
+    AdminAccount, Booking, Category, City, LandOwner, Product, Review, Seller, Service, ServiceProvider,
+    WallAd, WallCategory,
+)
 
 PASSWORD = 'demo1234'
 
@@ -85,6 +89,111 @@ WORKERS = [
     ('09130000014', 'ناصر', 'حیدری', 'سمپاشی و تغذیه مزارع اصفهان. با سمپاش فرغونی و پشتی کار می‌کنم.', 8, 840000, 45, True, ['spraying', 'fertilizing'], ['اصفهان']),
 ]
 
+SELLERS = [
+    (
+        '09125550001', 'فرهاد', 'بازرگان', 'بازرگانی بازرگان', 'مشهد',
+        'بلوار وکیل‌آباد، بازار روز کشاورزی، غرفه ۱۲',
+        Decimal('36.297200'), Decimal('59.606700'), '05137654321',
+        [
+            ('بذر گندم پیشگام', 'بذر گواهی‌شده برای کشت پاییزه. هر سفارش از کیسه ۲۵ کیلویی تحویل می‌شود.', 185000, Product.KILO),
+            ('کود اوره', 'کود سفید پریل در کیسه ۵۰ کیلویی. تحویل از انبار مشهد.', 42000, Product.KILO),
+        ],
+    ),
+    (
+        '09125550002', 'زهرا', 'گلستان', 'نهالستان گلستان', 'شیراز',
+        'جاده مرودشت، نهالستان گلستان، سوله ۲',
+        Decimal('29.591800'), Decimal('52.583700'), '',
+        [
+            ('نهال بادام', 'نهال یک‌ساله پیوندی، مناسب باغ دیم و آبی. ریشه پوشیده تحویل می‌شود.', 250000, Product.PIECE),
+            ('سم کنه‌کش', 'کنه‌کش تماسی برای باغ مرکبات. بطری یک لیتری با برگه مصرف.', 310000, Product.LITER),
+        ],
+    ),
+]
+
+WALL_CATEGORIES = [
+    ('محصولات کشاورزی', 'crops', 'گندم، میوه، سبزی و محصول آماده فروش', 1),
+    ('زمین و باغ', 'land', 'فروش و اجاره زمین، باغ و گلخانه', 2),
+    ('ادوات و ماشین‌آلات', 'machinery', 'تراکتور، کمباین و ابزار مزرعه', 3),
+    ('نهاده، کود و سم', 'inputs', 'بذر، کود، سم و خوراک', 4),
+    ('دام و طیور', 'livestock', 'دام، طیور، زنبور و آبزی', 5),
+    ('آبیاری و تجهیزات', 'irrigation', 'لوله، پمپ، نوار تیپ و قطره‌ای', 6),
+]
+
+WALL_ADS = [
+    (
+        '09121111111', 'crops', 'مشهد', 'وکیل‌آباد',
+        'گندم دیم درجه یک، تحویل سیلو',
+        'ده تن گندم دیم تمیز، تحویل از انبار مشهد. امکان بازدید پیش از خرید هست.',
+        18500, 'هر کیلو', 3000,
+    ),
+    (
+        '09125550001', 'inputs', 'مشهد', 'بازار روز',
+        'کود اوره کیسه ۵۰ کیلویی',
+        'کود سفید پریل در کیسه ۵۰ کیلویی. تحویل از انبار بازار روز کشاورزی مشهد.',
+        42000, 'هر کیسه', 45,
+    ),
+    (
+        '09130000001', 'machinery', 'مشهد', 'نیشابور',
+        'تراکتور رومانی ۲۸۵ سالم',
+        'تراکتور رومانی ۲۸۵ با لاستیک نو و مدارک کامل. بازدید در نیشابور، تحویل مشهد.',
+        780000000, '', 6000,
+    ),
+    (
+        '09122000001', 'land', 'مشهد', 'طرقبه',
+        'اجاره زمین کشاورزی ۱۲ هکتار',
+        'زمین آبی دوازده هکتاری با دسترسی جاده. اجاره برای یک سال زراعی، آب چاه موجود است.',
+        None, 'سال زراعی', 500,
+    ),
+    (
+        '09125550002', 'crops', 'شیراز', 'مرودشت',
+        'نهال بادام پیوندی یک‌ساله',
+        'نهال بادام پیوندی ریشه پر، مناسب باغ دیم و آبی. تحویل از نهالستان مرودشت.',
+        250000, 'هر اصله', 180,
+    ),
+    (
+        '09130000004', 'machinery', 'اصفهان', 'زیار',
+        'کمباین جاندیر کارکرده',
+        'کمباین جاندیر آماده فصل برداشت، سرویس‌شده و با راننده آشنا به دشت اصفهان.',
+        3200000000, '', 10000,
+    ),
+    (
+        '09130000005', 'crops', 'تبریز', 'خسروشاه',
+        'سیب درختی درجه یک سردخانه',
+        'سیب درختی درجه یک، خارج‌شده از سردخانه. فروش عمده برای بازار تبریز و اطراف.',
+        28000, 'هر کیلو', 90,
+    ),
+    (
+        '09130000007', 'livestock', 'ساری', 'فرح‌آباد',
+        'گاو شیری هلشتاین، زایش دوم',
+        'گاو شیری هلشتاین، زایش دوم، واکسن‌ها کامل است. بازدید در دامداری فرح‌آباد ساری.',
+        260000000, '', 2500,
+    ),
+    (
+        '09130000012', 'irrigation', 'رشت', 'کوچصفهان',
+        'نوار تیپ آبیاری، حلقه ۱۰۰۰ متری',
+        'نوار تیپ آبیاری قطره‌ای، حلقه هزار متری، مناسب باغ چای و مرکبات گیلان.',
+        950000, 'هر حلقه', 800,
+    ),
+    (
+        '09130000011', 'machinery', 'قزوین', 'الوند',
+        'گاوآهن برگردان‌دار سه خیش',
+        'گاوآهن برگردان‌دار سه خیش، سالم و رنگ‌شده. مناسب تراکتورهای سنگین دشت قزوین.',
+        145000000, '', 9000,
+    ),
+    (
+        '09130000014', 'inputs', 'اصفهان', 'خوراسگان',
+        'سم کنه‌کش یک لیتری',
+        'کنه‌کش تماسی برای باغ، بطری یک لیتری به همراه برگه مصرف. تحویل در خوراسگان.',
+        310000, 'هر بطری', 70,
+    ),
+    (
+        '09130000006', 'land', 'ارومیه', 'بالانج',
+        'فروش باغ سیب ۳ هکتار',
+        'باغ سیب سه هکتاری بارده با حقابه. سند و امکان بازدید در بالانج ارومیه فراهم است.',
+        None, 'قیمت توافقی', 12000,
+    ),
+]
+
 REVIEW_TEXTS = [
     (5, 'کار تمیز و به‌موقع انجام شد. برای فصل بعد هم هماهنگ می‌کنم.'),
     (4, 'با زمین و ابزار آشنا بود و وسط کار لازم نشد چیزی را دوباره توضیح بدهم.'),
@@ -156,8 +265,15 @@ class Command(BaseCommand):
             )
             cities[name] = city
 
-        self._user('09121111111', 'سامان', 'کریمی', User.FARMER)
-        self._user('09124444444', 'لیلا', 'احمدی', User.ADMIN)
+        self._land(self._user('09121111111', 'سامان', 'کریمی'))
+        admin_account, _ = AdminAccount.objects.get_or_create(
+            username='09124444444',
+            defaults={'name': 'لیلا احمدی'},
+        )
+        admin_account.name = 'لیلا احمدی'
+        admin_account.is_active = True
+        admin_account.set_password(PASSWORD)
+        admin_account.save()
         Account = get_user_model()
         admin, created = Account.objects.get_or_create(
             username='admin',
@@ -170,27 +286,32 @@ class Command(BaseCommand):
 
         for item in WORKERS:
             phone, first, last, bio, years, wage, jobs, verified, service_slugs, city_names = item
-            user = self._user(phone, first, last, User.WORKER)
-            user.bio = bio
-            user.experience_years = years
-            user.daily_wage = wage
-            user.jobs_done = jobs
-            user.is_verified = verified
-            user.accepts_jobs = True
-            user.save()
-            user.services.set([services[slug] for slug in service_slugs])
-            user.cities.set([cities[name] for name in city_names])
+            user = self._user(phone, first, last)
+            provider, _ = ServiceProvider.objects.get_or_create(user=user)
+            provider.bio = bio
+            provider.experience_years = years
+            provider.daily_wage = wage
+            provider.jobs_done = jobs
+            provider.is_verified = verified
+            provider.accepts_jobs = True
+            provider.save()
+            provider.services.set([services[slug] for slug in service_slugs])
+            provider.cities.set([cities[name] for name in city_names])
+
+        for item in SELLERS:
+            phone, first, last, store_name, city_name, address, lat, lng, store_phone, products = item
+            self._seller(phone, first, last, store_name, cities[city_name], address, lat, lng, store_phone, products)
 
         Account.objects.filter(username__in=('09130000008', '09130000009', '09130000015')).delete()
 
         authors = [
-            self._user(phone, first, last, User.FARMER)
+            self._land(self._user(phone, first, last))
             for phone, first, last in AUTHORS
         ]
         Review.objects.filter(booking__isnull=True).delete()
         now = timezone.now()
         for index, worker in enumerate(
-            Account.objects.filter(role=User.WORKER).order_by('-jobs_done', 'pk')
+            Account.objects.filter(service_profile__isnull=False).order_by('-service_profile__jobs_done', 'pk')
         ):
             for offset in (0, 2):
                 rating, comment = REVIEW_TEXTS[(index + offset) % len(REVIEW_TEXTS)]
@@ -203,13 +324,46 @@ class Command(BaseCommand):
                 Review.objects.filter(pk=review.pk).update(created_at=now - timedelta(days=index + offset))
             worker.refresh_rating()
 
+        self._wall(cities)
+
         self.stdout.write(self.style.SUCCESS('Sample data is ready.'))
         self.stdout.write('Farmer: 09121111111 / demo1234')
         self.stdout.write('Worker: 09130000001 / demo1234')
+        self.stdout.write('Seller: 09125550001 / demo1234')
         self.stdout.write('Site admin: 09124444444 / demo1234')
         self.stdout.write('Django admin: admin / demo1234')
 
-    def _user(self, phone, first, last, role):
+    def _wall(self, cities):
+        removed = WallCategory.objects.filter(slug__in=('jobs', 'services'))
+        WallAd.objects.filter(category__in=removed).delete()
+        removed.delete()
+        categories = {}
+        for name, slug, description, sort_order in WALL_CATEGORIES:
+            category, _ = WallCategory.objects.update_or_create(
+                slug=slug,
+                defaults={'name': name, 'description': description, 'sort_order': sort_order},
+            )
+            categories[slug] = category
+        now = timezone.now()
+        for phone, slug, city_name, district, title, description, price, note, minutes_ago in WALL_ADS:
+            user = get_user_model().objects.get(username=phone)
+            ad, _ = WallAd.objects.update_or_create(
+                user=user,
+                title=title,
+                defaults={
+                    'category': categories[slug],
+                    'city': cities[city_name],
+                    'district': district,
+                    'description': description,
+                    'price': price,
+                    'price_note': note,
+                    'is_published': True,
+                },
+            )
+            created = now - timedelta(minutes=minutes_ago)
+            WallAd.objects.filter(pk=ad.pk).update(created_at=created)
+
+    def _user(self, phone, first, last):
         Account = get_user_model()
         name = f'{first} {last}'.strip()
         user, _ = Account.objects.get_or_create(
@@ -217,8 +371,36 @@ class Command(BaseCommand):
             defaults={'name': name},
         )
         user.name = name
-        user.role = role
-        user.phone = phone
         user.set_password(PASSWORD)
         user.save()
         return user
+
+    def _land(self, user):
+        LandOwner.objects.get_or_create(user=user)
+        return user
+
+    def _seller(self, phone, first, last, store_name, city, address, lat, lng, store_phone, products):
+        user = self._user(phone, first, last)
+        seller, _ = Seller.objects.update_or_create(
+            user=user,
+            defaults={
+                'store_name': store_name,
+                'store_city': city,
+                'store_address': address,
+                'store_latitude': lat,
+                'store_longitude': lng,
+                'store_phone': store_phone,
+            },
+        )
+        for name, description, price, unit in products:
+            Product.objects.update_or_create(
+                seller=seller,
+                name=name,
+                defaults={
+                    'description': description,
+                    'price': price,
+                    'unit': unit,
+                    'is_available': True,
+                },
+            )
+        return seller

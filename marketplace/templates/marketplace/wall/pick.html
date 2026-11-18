@@ -1,0 +1,33 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}انتخاب دسته{% endblock %}
+{% block body_class %} wall-mode{% endblock %}
+
+{% block content %}
+{% include "marketplace/wall/partials/bar.html" %}
+<section class="bg-white">
+  <div class="mx-auto max-w-xl px-4 py-8">
+    <h1 class="text-2xl text-[#161616]">ثبت آگهی</h1>
+    <p class="mt-2 text-sm text-[#666]">دسته‌بندی آگهی را مشخص کنید</p>
+    {% if categories %}
+      <ul class="mt-6 divide-y divide-[#f0f0f0] border-y border-[#f0f0f0]">
+        {% for category in categories %}
+          <li>
+            <a class="flex items-center justify-between gap-3 py-4 hover:text-[#a62626]" href="{% url 'wall_new' %}?cat={{ category.slug }}{% if city_id %}&city={{ city_id }}{% endif %}">
+              <span class="flex min-w-0 items-center gap-3">
+                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#fafafa] text-[#555]">{% include "marketplace/wall/partials/icon.html" with slug=category.slug %}</span>
+                <span class="min-w-0">
+                  <span class="block font-bold text-[#222]">{{ category.name }}</span>
+                </span>
+              </span>
+              <svg class="h-4 w-4 shrink-0 text-[#bbb]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-8 text-sm text-[#888]">هنوز دسته‌ای برای دیوار ثبت نشده است.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

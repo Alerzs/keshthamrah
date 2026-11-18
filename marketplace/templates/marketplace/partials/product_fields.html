@@ -1,0 +1,17 @@
+{% for field in form %}
+  <div>
+    {% if field.name == 'is_available' %}
+      <label class="flex items-center gap-2 text-sm font-semibold">
+        {{ field }}
+        <span>{{ field.label }}</span>
+      </label>
+    {% else %}
+      <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-semibold">{{ field.label }}</label>
+      {{ field }}
+    {% endif %}
+    {% for error in field.errors %}<p class="mt-1 text-xs text-rose-600">{{ error }}</p>{% endfor %}
+  </div>
+{% endfor %}
+{% if form.non_field_errors %}
+  <div class="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form.non_field_errors }}</div>
+{% endif %}

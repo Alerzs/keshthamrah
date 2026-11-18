@@ -1,6 +1,6 @@
 from django import template
 
-from marketplace.dates import to_jalali
+from marketplace.dates import relative_fa, to_jalali
 
 register = template.Library()
 
@@ -17,6 +17,11 @@ def fa_digits(value):
 @register.filter
 def jalali(value, fmt='Y/m/d'):
     return to_jalali(value, fmt)
+
+
+@register.filter
+def ago(value):
+    return relative_fa(value)
 
 
 @register.filter

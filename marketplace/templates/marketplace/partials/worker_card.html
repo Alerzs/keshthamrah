@@ -43,9 +43,9 @@
     <div class="text-sm font-extrabold text-soil">{{ worker.daily_wage|toman }}</div>
     <div class="flex gap-2">
       <a href="{% url 'worker_detail' worker.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="rounded-xl border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-paper">پروفایل</a>
-      {% if request.user.is_authenticated and request.user.pk == worker.pk %}
+      {% if request.user.is_authenticated and not is_admin and request.user.pk == worker.pk %}
         <span class="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500">پروفایل شما</span>
-      {% elif worker.accepts_jobs and current_profile.role != 'worker' and current_profile.role != 'admin' %}
+      {% elif worker.accepts_jobs and not is_admin %}
         <a href="{% url 'book' worker.pk %}?{{ request.GET.urlencode }}" class="rounded-md bg-clay px-3 py-2 text-xs font-semibold text-white hover:bg-clay-dark">رزرو</a>
       {% endif %}
     </div>

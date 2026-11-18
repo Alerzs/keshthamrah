@@ -1,0 +1,21 @@
+<div class="space-y-3">
+  {% if widget.is_initial and widget.value.url %}
+    <div class="flex items-center gap-3">
+      <img src="{{ widget.value.url }}" alt="" class="h-16 w-16 border border-line bg-paper object-cover">
+      {% if not widget.required %}
+        <label for="{{ widget.checkbox_id }}" class="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" class="h-4 w-4 accent-teal-600"{% if widget.attrs.disabled %} disabled{% endif %}>
+          حذف تصویر فعلی
+        </label>
+      {% endif %}
+    </div>
+  {% endif %}
+  <div class="file-picker relative flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition focus-within:border-teal-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-teal-100">
+    <input type="{{ widget.type }}" name="{{ widget.name }}" class="absolute inset-0 z-10 cursor-pointer opacity-0" data-file-input{% include "django/forms/widgets/attrs.html" %}>
+    <span class="pointer-events-none inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-soil px-3 py-2 text-xs font-semibold text-white">
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.4"/><path d="M4 16l4.5-4 3.2 3.2L15 12l5 5"/></svg>
+      انتخاب تصویر
+    </span>
+    <span class="file-name pointer-events-none min-w-0 flex-1 truncate text-sm text-slate-500" data-empty="تصویری انتخاب نشده">تصویری انتخاب نشده</span>
+  </div>
+</div>

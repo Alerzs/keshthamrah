@@ -2,14 +2,16 @@
   if (!window.L) return;
   const mapNode = document.getElementById('farm-map');
   const borderNode = document.getElementById('iran-border');
-  const latInput = document.getElementById('id_farm_latitude');
-  const lngInput = document.getElementById('id_farm_longitude');
-  if (!mapNode || !borderNode || !latInput || !lngInput) return;
+  if (!mapNode || !borderNode) return;
+  const latInput = document.getElementById(mapNode.dataset.latInput || 'id_farm_latitude');
+  const lngInput = document.getElementById(mapNode.dataset.lngInput || 'id_farm_longitude');
+  if (!latInput || !lngInput) return;
 
   const status = document.getElementById('map-status');
   const clearBtn = document.getElementById('map-clear');
   const locateBtn = document.getElementById('map-locate');
-  const citySelect = document.getElementById('id_farm_city');
+  const citySelect = document.getElementById(mapNode.dataset.cityInput || 'id_farm_city');
+  const emptyStatus = mapNode.dataset.emptyStatus || 'موقعیتی انتخاب نشده. این بخش اجباری نیست.';
   const centersNode = document.getElementById('city-centers');
   const centers = centersNode ? JSON.parse(centersNode.textContent) : {};
   const border = JSON.parse(borderNode.textContent);
@@ -70,7 +72,7 @@
   function setStatus(lat, lng) {
     if (!status) return;
     if (lat == null) {
-      status.textContent = 'موقعیتی انتخاب نشده. این بخش اجباری نیست.';
+      status.textContent = emptyStatus;
       if (clearBtn) clearBtn.classList.add('hidden');
       return;
     }

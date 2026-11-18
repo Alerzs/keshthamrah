@@ -1,0 +1,92 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+{% block title %}محصولات{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 py-8">
+  <h1 class="text-4xl text-ink">محصولات</h1>
+  <div class="mt-6 grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <aside class="border border-line bg-sheet p-4 lg:sticky lg:top-24">
+      <h2 class="text-lg text-ink">فیلتر</h2>
+      <form method="get" class="mt-4 space-y-4">
+        <div>
+          <label for="bazaar-q" class="mb-1.5 block text-xs font-semibold text-muted">نام محصول</label>
+          <input id="bazaar-q" type="search" name="q" value="{{ query }}" class="w-full border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-soil">
+        </div>
+        <div>
+          <label for="bazaar-seller" class="mb-1.5 block text-xs font-semibold text-muted">فروشگاه</label>
+          <input id="bazaar-seller" type="search" name="seller" value="{{ seller_query }}" class="w-full border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-soil">
+        </div>
+        <fieldset>
+          <legend class="mb-1.5 text-xs font-semibold text-muted">شهر</legend>
+          <div class="max-h-48 space-y-1.5 overflow-y-auto pe-1">
+            {% for city in cities %}
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="city" value="{{ city.pk }}" class="accent-clay" {% if city.pk|stringformat:"s" in selected_cities %}checked{% endif %}>
+                <span>{{ city.name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend class="mb-1.5 text-xs font-semibold text-muted">واحد</legend>
+          <div class="space-y-1.5">
+            {% for value, label in units %}
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="unit" value="{{ value }}" class="accent-clay" {% if value in selected_units %}checked{% endif %}>
+                <span>{{ label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend class="mb-1.5 text-xs font-semibold text-muted">قیمت (تومان)</legend>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" name="min_price" min="0" inputmode="numeric" value="{{ min_price }}" placeholder="از" aria-label="حداقل قیمت" class="w-full border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-soil">
+            <input type="number" name="max_price" min="0" inputmode="numeric" value="{{ max_price }}" placeholder="تا" aria-label="حداکثر قیمت" class="w-full border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-soil">
+          </div>
+        </fieldset>
+        <div>
+          <label for="bazaar-sort" class="mb-1.5 block text-xs font-semibold text-muted">مرتب‌سازی</label>
+          <select id="bazaar-sort" name="sort" class="w-full border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-soil">
+            <option value="new" {% if sort == 'new' %}selected{% endif %}>جدیدترین</option>
+            <option value="cheap" {% if sort == 'cheap' %}selected{% endif %}>ارزان‌ترین</option>
+            <option value="expensive" {% if sort == 'expensive' %}selected{% endif %}>گران‌ترین</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-soil px-4 py-2.5 text-sm font-semibold text-white hover:bg-soil-deep">اعمال فیلتر</button>
+        {% if filters_active %}
+          <a href="{% url 'bazaar' %}" class="block text-center text-sm font-semibold text-clay">حذف فیلتر</a>
+        {% endif %}
+      </form>
+    </aside>
+
+    <div>
+      {% if page_obj.object_list %}
+        <div class="grid grid-cols-2 gap-3 xl:grid-cols-3">
+          {% for product in page_obj %}
+            <a href="{{ product.get_absolute_url }}" class="flex h-full flex-col overflow-hidden border border-line bg-sheet">
+              <span class="grid aspect-square place-items-center bg-paper">
+                {% if product.image %}
+                  <img src="{{ product.image.url }}" alt="" class="h-full w-full object-cover">
+                {% else %}
+                  <svg class="h-12 w-12 text-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.4"/><path d="M4 16l4.5-4 3.2 3.2L15 12l5 5"/></svg>
+                {% endif %}
+              </span>
+              <span class="flex flex-1 flex-col p-3">
+                <span class="line-clamp-2 text-sm font-semibold leading-6 text-ink">{{ product.name }}</span>
+                <span class="mt-2 text-sm font-bold text-soil">{{ product.price|toman }}</span>
+                <span class="mt-1 text-xs text-muted">{{ product.seller.display_name }}{% if product.seller.store_city %} · {{ product.seller.store_city.name }}{% endif %}</span>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+        {% include "marketplace/partials/pagination.html" %}
+      {% else %}
+        <div class="border border-line bg-sheet px-6 py-14 text-center">
+          <p class="font-bold">محصولی پیدا نشد</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

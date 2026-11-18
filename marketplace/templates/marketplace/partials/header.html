@@ -1,30 +1,66 @@
 {% load fa %}
 <header class="sticky top-0 z-40 border-b border-soil-deep bg-soil text-[#f6f1e6]">
   <div class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-    <a href="{% if current_profile.role == 'admin' %}{% url 'admin_panel' %}{% else %}{% url 'home' %}{% endif %}" class="flex items-center gap-2 text-lg font-semibold text-[#f6f1e6]">
+    <a href="{% if is_admin %}{% url 'admin_panel' %}{% else %}{% url 'home' %}{% endif %}" class="flex items-center gap-2 text-lg font-semibold text-[#f6f1e6]">
       {% include "marketplace/partials/logo.html" %}
       کشت همراه
     </a>
-    <nav class="hidden items-center gap-5 text-sm font-medium text-[#e7e0d2]/80 lg:flex">
-      {% if current_profile.role != 'admin' %}
-      <a href="{% url 'home' %}" class="hover:text-white {% if request.resolver_match.url_name == 'home' %}text-wheat{% endif %}">خانه</a>
-      <a href="{% url 'services' %}" class="hover:text-white {% if request.resolver_match.url_name == 'services' or request.resolver_match.url_name == 'category' or request.resolver_match.url_name == 'order' %}text-wheat{% endif %}">خدمات</a>
-      <a href="{% url 'workers' %}" class="hover:text-white {% if request.resolver_match.url_name == 'workers' or request.resolver_match.url_name == 'worker_detail' %}text-wheat{% endif %}">سرویس‌دهندگان</a>
-      {% endif %}
-      {% if current_profile.role == 'worker' %}
-        <a href="{% url 'worker_jobs' %}" class="hover:text-white {% if request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' %}text-wheat{% endif %}">کارهای من</a>
-        <a href="{% url 'worker_profile' %}" class="hover:text-white {% if request.resolver_match.url_name == 'worker_profile' %}text-wheat{% endif %}">پروفایل کاری</a>
-      {% elif current_profile.role == 'farmer' %}
-        <a href="{% url 'bookings' %}" class="hover:text-white {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}text-wheat{% endif %}">سفارش‌های من</a>
-        <a href="{% url 'farmer_profile' %}" class="hover:text-white {% if request.resolver_match.url_name == 'farmer_profile' %}text-wheat{% endif %}">پروفایل زمین</a>
-      {% elif current_profile.role == 'admin' %}
+    <nav class="hidden items-center gap-4 text-sm font-medium text-[#e7e0d2]/80 lg:flex xl:gap-5">
+      {% if not is_admin %}
+      <div class="relative" id="bazaar-menu">
+        <div class="bazaar-trigger inline-flex items-center">
+          <a href="{% url 'bazaar' %}" class="whitespace-nowrap {% if bazaar_nav %}text-wheat{% endif %}">بازار</a>
+          <button id="bazaar-btn" type="button" class="inline-flex items-center ps-0.5 {% if bazaar_nav %}text-wheat{% endif %}" aria-expanded="false" aria-controls="bazaar-panel" aria-haspopup="true" aria-label="منوی بازار">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+        <div id="bazaar-panel" class="absolute start-0 top-full z-50 hidden pt-2">
+          <div class="w-52 overflow-hidden rounded-2xl border border-line bg-sheet py-1 text-ink" role="menu" aria-label="بازار">
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'seller_products' or request.resolver_match.url_name == 'seller_product_new' or request.resolver_match.url_name == 'seller_product_edit' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'seller_products' %}">پنل فروشگاه</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'seller_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'seller_profile' %}">ثبت فروشگاه</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'bazaar' or request.resolver_match.url_name == 'product_detail' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'bazaar' %}">محصولات</a>
+          </div>
+        </div>
+      </div>
+      <div class="relative" id="hamrah-menu">
+        <button id="hamrah-btn" type="button" class="inline-flex items-center gap-1 whitespace-nowrap hover:text-white {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'services' or request.resolver_match.url_name == 'category' or request.resolver_match.url_name == 'order' or request.resolver_match.url_name == 'workers' or request.resolver_match.url_name == 'worker_detail' or request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' or request.resolver_match.url_name == 'worker_profile' or request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' or request.resolver_match.url_name == 'farmer_profile' %}text-wheat{% endif %}" aria-expanded="false" aria-controls="hamrah-panel" aria-haspopup="true">
+          همراه کشت
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div id="hamrah-panel" class="absolute start-0 top-full z-50 hidden pt-2">
+          <div class="w-52 overflow-hidden rounded-2xl border border-line bg-sheet py-1 text-ink" role="menu" aria-label="همراه کشت">
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'home' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'home' %}">خانه</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'services' or request.resolver_match.url_name == 'category' or request.resolver_match.url_name == 'order' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'services' %}">خدمات</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'workers' or request.resolver_match.url_name == 'worker_detail' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'workers' %}">سرویس‌دهندگان</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'farmer_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'farmer_profile' %}">ثبت زمین</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_profile' %}">ثبت خدمت</a>
+            {% if land_profile %}
+              <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'bookings' %}">درخواست‌های من</a>
+            {% endif %}
+            {% if service_profile %}
+              <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_jobs' %}">کارهای من</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="relative" id="wall-menu">
+        <button id="wall-btn" type="button" class="inline-flex items-center gap-1 whitespace-nowrap hover:text-white {% if wall_nav %}text-wheat{% endif %}" aria-expanded="false" aria-controls="wall-panel" aria-haspopup="true">
+          دیوار کشاورزی
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div id="wall-panel" class="absolute start-0 top-full z-50 hidden pt-2">
+          <div class="w-52 overflow-hidden rounded-2xl border border-line bg-sheet py-1 text-ink" role="menu" aria-label="دیوار کشاورزی">
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'wall' or request.resolver_match.url_name == 'wall_city' or request.resolver_match.url_name == 'wall_ad' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'wall' %}">آگهی‌ها</a>
+            <a role="menuitem" class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'wall_mine' or request.resolver_match.url_name == 'wall_new' or request.resolver_match.url_name == 'wall_edit' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'wall_mine' %}">دیوار من</a>
+          </div>
+        </div>
+      </div>
+      <a href="{% url 'faq' %}" class="whitespace-nowrap hover:text-white {% if request.resolver_match.url_name == 'faq' %}text-wheat{% endif %}">پرسش‌ها</a>
+      <a href="{% url 'about' %}" class="whitespace-nowrap hover:text-white {% if request.resolver_match.url_name == 'about' %}text-wheat{% endif %}">درباره ما</a>
+      {% else %}
         <a href="{% url 'admin_panel' %}" class="hover:text-white {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_approve' %}text-wheat{% endif %}">پنل کارها</a>
         <a href="{% url 'admin_people' %}" class="hover:text-white {% if request.resolver_match.url_name == 'admin_people' %}text-wheat{% endif %}">افراد</a>
         <a href="{% url 'admin_create_account' %}" class="hover:text-white {% if request.resolver_match.url_name == 'admin_create_account' %}text-wheat{% endif %}">افزودن حساب</a>
-      {% endif %}
-      {% if current_profile.role != 'admin' %}
-      <a href="{% url 'faq' %}" class="hover:text-white {% if request.resolver_match.url_name == 'faq' %}text-wheat{% endif %}">پرسش‌ها</a>
-      <a href="{% url 'about' %}" class="hidden hover:text-white xl:inline {% if request.resolver_match.url_name == 'about' %}text-wheat{% endif %}">درباره ما</a>
       {% endif %}
     </nav>
     <div class="flex items-center gap-2">
@@ -37,28 +73,58 @@
             <div class="border-b border-line px-4 py-3">
               <p class="truncate text-sm font-semibold">{{ request.user.get_full_name }}</p>
               {% if current_profile %}
-                <p class="mt-0.5 text-xs text-muted">{{ current_profile.get_role_display }}{% if current_profile.phone %} · <span dir="ltr">{{ current_profile.phone|fa_digits }}</span>{% endif %}</p>
-                {% if current_profile.role != 'admin' and current_profile.completion_percent < 100 %}
-                  <a href="{% if current_profile.role == 'worker' %}{% url 'worker_profile' %}{% else %}{% url 'farmer_profile' %}{% endif %}" class="mt-3 block">
+                <p class="mt-0.5 text-xs text-muted">{{ current_profile.account_label }}{% if current_profile.phone %} · <span dir="ltr">{{ current_profile.phone|fa_digits }}</span>{% endif %}</p>
+                {% if land_profile and land_profile.completion_percent < 100 %}
+                  <a href="{% url 'farmer_profile' %}" class="mt-3 block">
                     <span class="mb-1 flex items-center justify-between text-[11px] font-medium text-clay">
-                      <span>تکمیل پروفایل</span>
-                      <span>{{ current_profile.completion_percent|fa_digits }}٪</span>
+                      <span>تکمیل زمین</span>
+                      <span>{{ land_profile.completion_percent|fa_digits }}٪</span>
                     </span>
                     <span class="block h-1.5 overflow-hidden rounded-full bg-line">
-                      <span class="block h-full rounded-full bg-clay" style="width: {{ current_profile.completion_percent }}%"></span>
+                      <span class="block h-full rounded-full bg-clay" style="width: {{ land_profile.completion_percent }}%"></span>
+                    </span>
+                  </a>
+                {% endif %}
+                {% if service_profile and service_profile.completion_percent < 100 %}
+                  <a href="{% url 'worker_profile' %}" class="mt-3 block">
+                    <span class="mb-1 flex items-center justify-between text-[11px] font-medium text-clay">
+                      <span>تکمیل خدمت</span>
+                      <span>{{ service_profile.completion_percent|fa_digits }}٪</span>
+                    </span>
+                    <span class="block h-1.5 overflow-hidden rounded-full bg-line">
+                      <span class="block h-full rounded-full bg-clay" style="width: {{ service_profile.completion_percent }}%"></span>
+                    </span>
+                  </a>
+                {% endif %}
+                {% if seller_profile and seller_profile.completion_percent < 100 %}
+                  <a href="{% url 'seller_profile' %}" class="mt-3 block">
+                    <span class="mb-1 flex items-center justify-between text-[11px] font-medium text-clay">
+                      <span>تکمیل فروشگاه</span>
+                      <span>{{ seller_profile.completion_percent|fa_digits }}٪</span>
+                    </span>
+                    <span class="block h-1.5 overflow-hidden rounded-full bg-line">
+                      <span class="block h-full rounded-full bg-clay" style="width: {{ seller_profile.completion_percent }}%"></span>
                     </span>
                   </a>
                 {% endif %}
               {% endif %}
             </div>
             <div class="py-1 text-sm">
-              {% if current_profile.role == 'worker' %}
-                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_profile' %}">پروفایل کاری</a>
-                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_jobs' %}">کارهای من</a>
-              {% elif current_profile.role == 'farmer' %}
-                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'farmer_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'farmer_profile' %}">پروفایل زمین</a>
-                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'bookings' %}">سفارش‌های من</a>
-              {% elif current_profile.role == 'admin' %}
+              {% if not is_admin %}
+                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'farmer_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'farmer_profile' %}">ثبت زمین</a>
+                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_profile' %}">ثبت خدمت</a>
+                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'seller_profile' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'seller_profile' %}">ثبت فروشگاه</a>
+                {% if seller_profile and seller_profile.is_profile_complete %}
+                  <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'seller_products' or request.resolver_match.url_name == 'seller_product_new' or request.resolver_match.url_name == 'seller_product_edit' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'seller_products' %}">محصولات من</a>
+                {% endif %}
+                <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'wall_mine' or request.resolver_match.url_name == 'wall_new' or request.resolver_match.url_name == 'wall_edit' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'wall_mine' %}">آگهی‌های من</a>
+                {% if land_profile %}
+                  <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'bookings' %}">درخواست‌های من</a>
+                {% endif %}
+                {% if service_profile %}
+                  <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'worker_jobs' %}">کارهای من</a>
+                {% endif %}
+              {% elif is_admin %}
                 <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_approve' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'admin_panel' %}">پنل کارها</a>
                 <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'admin_people' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'admin_people' %}">افراد</a>
                 <a class="block px-4 py-2.5 hover:bg-paper {% if request.resolver_match.url_name == 'admin_create_account' %}bg-paper font-semibold text-clay{% endif %}" href="{% url 'admin_create_account' %}">افزودن حساب</a>
@@ -86,29 +152,43 @@
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-wheat text-sm font-bold text-soil" aria-hidden="true">{% if current_profile %}{{ current_profile.initials }}{% else %}{{ request.user.get_full_name|slice:":1" }}{% endif %}</span>
           <span class="min-w-0">
             <span class="block truncate font-semibold">{{ request.user.get_full_name }}</span>
-            {% if current_profile %}<span class="block text-xs text-wheat">{{ current_profile.get_role_display }}</span>{% endif %}
+            {% if current_profile %}<span class="block text-xs text-wheat">{{ current_profile.account_label }}</span>{% endif %}
           </span>
         </div>
       {% endif %}
-      {% if current_profile.role != 'admin' %}
-      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'home' %}bg-white/10 text-wheat{% endif %}" href="{% url 'home' %}">خانه</a>
-      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'services' or request.resolver_match.url_name == 'category' or request.resolver_match.url_name == 'order' %}bg-white/10 text-wheat{% endif %}" href="{% url 'services' %}">خدمات</a>
-      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'workers' or request.resolver_match.url_name == 'worker_detail' %}bg-white/10 text-wheat{% endif %}" href="{% url 'workers' %}">سرویس‌دهندگان</a>
+      {% if not is_admin %}
+      <div class="rounded-md px-3 py-2">
+        <p class="text-xs font-semibold text-wheat">دیوار کشاورزی</p>
+        <a class="mt-1 block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'wall' or request.resolver_match.url_name == 'wall_city' or request.resolver_match.url_name == 'wall_ad' %}bg-white/10 text-wheat{% endif %}" href="{% url 'wall' %}">آگهی‌ها</a>
+        <a class="block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'wall_mine' or request.resolver_match.url_name == 'wall_new' or request.resolver_match.url_name == 'wall_edit' %}bg-white/10 text-wheat{% endif %}" href="{% url 'wall_mine' %}">دیوار من</a>
+      </div>
+      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'bazaar' or request.resolver_match.url_name == 'product_detail' %}bg-white/10 text-wheat{% endif %}" href="{% url 'bazaar' %}">بازار</a>
+      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'seller_products' or request.resolver_match.url_name == 'seller_product_new' or request.resolver_match.url_name == 'seller_product_edit' %}bg-white/10 text-wheat{% endif %}" href="{% url 'seller_products' %}">پنل فروشگاه</a>
+      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'seller_profile' %}bg-white/10 text-wheat{% endif %}" href="{% url 'seller_profile' %}">ثبت فروشگاه</a>
+      <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'bazaar' or request.resolver_match.url_name == 'product_detail' %}bg-white/10 text-wheat{% endif %}" href="{% url 'bazaar' %}">محصولات</a>
+      <div class="rounded-md px-3 py-2">
+        <p class="text-xs font-semibold text-wheat">همراه کشت</p>
+        <a class="mt-1 block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'home' %}bg-white/10 text-wheat{% endif %}" href="{% url 'home' %}">خانه</a>
+        <a class="block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'services' or request.resolver_match.url_name == 'category' or request.resolver_match.url_name == 'order' %}bg-white/10 text-wheat{% endif %}" href="{% url 'services' %}">خدمات</a>
+        <a class="block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'workers' or request.resolver_match.url_name == 'worker_detail' %}bg-white/10 text-wheat{% endif %}" href="{% url 'workers' %}">سرویس‌دهندگان</a>
+        <a class="block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'farmer_profile' %}bg-white/10 text-wheat{% endif %}" href="{% url 'farmer_profile' %}">ثبت زمین</a>
+        <a class="block rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'worker_profile' %}bg-white/10 text-wheat{% endif %}" href="{% url 'worker_profile' %}">ثبت خدمت</a>
+      </div>
+      {% if land_profile %}
+        <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}bg-white/10 text-wheat{% endif %}" href="{% url 'bookings' %}">درخواست‌های من</a>
       {% endif %}
-      {% if current_profile.role == 'worker' %}
+      {% if service_profile %}
         <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'worker_jobs' or request.resolver_match.url_name == 'job_update' %}bg-white/10 text-wheat{% endif %}" href="{% url 'worker_jobs' %}">کارهای من</a>
-        <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'worker_profile' %}bg-white/10 text-wheat{% endif %}" href="{% url 'worker_profile' %}">پروفایل کاری</a>
-      {% elif current_profile.role == 'farmer' %}
-        <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'bookings' or request.resolver_match.url_name == 'booking_cancel' or request.resolver_match.url_name == 'booking_complete' or request.resolver_match.url_name == 'booking_review' %}bg-white/10 text-wheat{% endif %}" href="{% url 'bookings' %}">سفارش‌های من</a>
-        <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'farmer_profile' %}bg-white/10 text-wheat{% endif %}" href="{% url 'farmer_profile' %}">پروفایل زمین</a>
-      {% elif current_profile.role == 'admin' %}
+      {% endif %}
+      {% endif %}
+      {% if is_admin %}
         <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_approve' %}bg-white/10 text-wheat{% endif %}" href="{% url 'admin_panel' %}">پنل کارها</a>
         <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'admin_people' %}bg-white/10 text-wheat{% endif %}" href="{% url 'admin_people' %}">افراد</a>
         <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'admin_create_account' %}bg-white/10 text-wheat{% endif %}" href="{% url 'admin_create_account' %}">افزودن حساب</a>
-      {% else %}
+      {% elif not request.user.is_authenticated %}
         <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'register' %}bg-white/10 text-wheat{% endif %}" href="{% url 'register' %}">ثبت‌نام</a>
       {% endif %}
-      {% if current_profile.role != 'admin' %}
+      {% if not is_admin %}
       <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'about' %}bg-white/10 text-wheat{% endif %}" href="{% url 'about' %}">درباره ما</a>
       <a class="rounded-md px-3 py-2 hover:bg-white/10 {% if request.resolver_match.url_name == 'faq' %}bg-white/10 text-wheat{% endif %}" href="{% url 'faq' %}">پرسش‌های متداول</a>
       {% endif %}

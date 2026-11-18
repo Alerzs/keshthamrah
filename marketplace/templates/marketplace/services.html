@@ -4,9 +4,8 @@
 <section class="mx-auto max-w-6xl px-4 pt-10">
   <p class="text-sm font-semibold text-clay">فهرست کارها</p>
   <h1 class="mt-1 text-4xl text-ink">همه خدمات کشاورزی</h1>
-  {% if current_profile.role == 'worker' %}
-    <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">این فهرست خدمات سامانه است. ثبت درخواست جدید برای صاحبان زمین است و شما درخواست‌های رسیده را تأیید می‌کنید.</p>
-    <a href="{% url 'worker_jobs' %}" class="mt-4 inline-flex text-sm font-semibold text-clay hover:text-clay-dark">رفتن به کارهای من</a>
+  {% if is_admin %}
+    <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">این فهرست خدمات سامانه است.</p>
   {% else %}
     <p class="mt-2 max-w-2xl text-sm leading-7 text-muted">دسته را انتخاب کنید، بعد شهر و آدرس زمین را وارد کنید.</p>
     <a href="{% url 'workers' %}" class="mt-4 inline-flex text-sm font-semibold text-clay hover:text-clay-dark">دیدن سرویس‌دهندگان</a>

@@ -103,6 +103,10 @@
     box-shadow: 0 12px 28px -22px rgb(0 0 0 / 0.65);
   }
 
+  .leaflet-container {
+    z-index: 0;
+  }
+
   header nav > a {
     padding-bottom: 0.15rem;
   }
@@ -119,6 +123,10 @@
   nav.fixed.bottom-0 {
     box-shadow: 0 -10px 24px -18px rgb(36 28 20 / 0.4);
   }
+}
+
+#bazaar-menu .bazaar-trigger:hover > :is(a, button) {
+  color: #fff;
 }
 
 a.bg-soil:hover {
@@ -171,4 +179,78 @@ a.bg-soil:hover {
 [data-slider].is-dragging,
 [data-slider].is-dragging a {
   cursor: grabbing;
+}
+
+.file-picker {
+  position: relative;
+}
+
+.file-picker [data-file-input] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+body.wall-mode {
+  background: #fff;
+  background-image: none;
+}
+
+body.wall-mode :is(h1, h2, h3) {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+body.wall-mode .wall-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: #a62626;
+}
+
+body.wall-mode summary {
+  list-style: none;
+}
+
+body.wall-mode summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  #wall-filter-box > summary {
+    display: none;
+  }
+
+  #wall-filter-box > form {
+    display: block;
+  }
+}
+
+body.wall-mode :is(input, textarea, select):focus {
+  border-color: #a62626;
+  box-shadow: 0 0 0 3px rgb(166 38 38 / 0.12);
+}
+
+.wall-post {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #a62626;
+  color: #fff;
+  border-radius: 0.5rem;
+  font-weight: 700;
+}
+
+.wall-post:hover {
+  background: #8d1d1d;
+  color: #fff;
+}
+
+button.wall-post {
+  border: 0;
+  cursor: pointer;
 }

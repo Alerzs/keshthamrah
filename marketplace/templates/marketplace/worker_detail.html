@@ -25,7 +25,7 @@
     <h2 class="mt-6 text-sm font-bold">حوزه کاری</h2>
     <div class="mt-2 flex flex-wrap gap-2">
       {% for service in worker.services.all %}
-        {% if current_profile.role == 'worker' or current_profile.role == 'admin' %}
+        {% if is_admin %}
           <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ service.name }}</span>
         {% else %}
           <a href="{% url 'order' service.slug %}" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ service.name }}</a>
@@ -40,11 +40,9 @@
         <span class="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800">{{ city.name }}، {{ city.province }}</span>
       {% endfor %}
     </div>
-    {% if worker.accepts_jobs and current_profile.role != 'worker' and current_profile.role != 'admin' %}
+    {% if worker.accepts_jobs and not is_admin and request.user.pk != worker.pk %}
       <a href="{% url 'book' worker.pk %}?{{ request.GET.urlencode }}" class="mt-6 inline-flex rounded-2xl bg-teal-600 px-6 py-3 text-sm font-bold text-white hover:bg-teal-700">رزرو این سرویس دهنده</a>
-    {% elif current_profile.role == 'worker' %}
-      <p class="mt-6 text-sm text-slate-500">ثبت درخواست برای صاحبان زمین است. درخواست‌های رسیده را از کارهای من تأیید کنید.</p>
-    {% elif current_profile.role == 'admin' %}
+    {% elif is_admin %}
       <p class="mt-6 text-sm text-slate-500">رزرو سرویس‌دهنده فقط برای صاحبان زمین است.</p>
     {% elif not worker.accepts_jobs %}
       <p class="mt-6 text-sm text-slate-500">این سرویس دهنده فعلاً سفارش جدید نمی‌پذیرد.</p>

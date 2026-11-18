@@ -84,6 +84,33 @@ def jalali_parts(value):
     return str(converted.year), str(converted.month), str(converted.day)
 
 
+def relative_fa(value):
+    if value in (None, ''):
+        return ''
+    try:
+        moment = _as_gregorian(value)
+    except (TypeError, ValueError):
+        return ''
+    if moment is None:
+        return ''
+    if not isinstance(moment, datetime.datetime):
+        moment = datetime.datetime.combine(moment, datetime.time.min)
+    now = timezone.localtime().replace(tzinfo=None)
+    seconds = (now - moment).total_seconds()
+    if seconds < 180:
+        return 'لحظاتی پیش'
+    if seconds < 3600:
+        return f'{fa_digits(max(1, int(seconds // 60)))} دقیقه پیش'
+    if seconds < 86400:
+        return f'{fa_digits(max(1, int(seconds // 3600)))} ساعت پیش'
+    days = max(1, int(seconds // 86400))
+    if days == 1:
+        return 'دیروز'
+    if days < 7:
+        return f'{fa_digits(days)} روز پیش'
+    return to_jalali(value)
+
+
 def jalali_year_span(selected=None):
     today = jdatetime.date.fromgregorian(date=timezone.localdate())
     years = list(range(today.year, today.year + 3))

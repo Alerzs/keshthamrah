@@ -1,0 +1,40 @@
+{% load fa %}
+{% if linked %}
+<a href="{{ ad.get_absolute_url }}" class="flex items-start gap-3 border-b border-[#f0f0f0] py-4">
+{% else %}
+<div class="flex items-start gap-3 py-3">
+{% endif %}
+  <div class="min-w-0 flex-1">
+    <h2 class="line-clamp-2 text-base font-extrabold leading-7 text-[#161616]">
+      {% if linked %}
+        {{ ad.title }}
+      {% else %}
+        <a href="{{ ad.get_absolute_url }}" class="hover:text-[#a62626]">{{ ad.title }}</a>
+      {% endif %}
+    </h2>
+    {% if ad.price_note %}
+      <p class="mt-3 text-sm text-[#62666d]">{{ ad.price_note }}</p>
+    {% endif %}
+    <p class="{% if ad.price_note %}mt-1{% else %}mt-3{% endif %} text-sm text-[#3d3d3d]">
+      {% if ad.price %}{{ ad.price|toman }}{% else %}توافقی{% endif %}
+    </p>
+    <p class="mt-1 text-xs text-[#8e8e8e]">{{ ad.place_line }}</p>
+  </div>
+  <div class="relative h-28 w-28 shrink-0 overflow-hidden rounded-md bg-[#f3f3f3] sm:h-[8.5rem] sm:w-[8.5rem]">
+    {% if ad.image %}
+      <img src="{{ ad.image.url }}" alt="" class="h-full w-full object-cover">
+      <span class="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
+        ۱
+      </span>
+    {% else %}
+      <span class="grid h-full w-full place-items-center text-[#cfcfcf]">
+        {% include "marketplace/wall/partials/icon.html" with slug=ad.category.slug svg_class="h-8 w-8" %}
+      </span>
+    {% endif %}
+  </div>
+{% if linked %}
+</a>
+{% else %}
+</div>
+{% endif %}

@@ -4,7 +4,6 @@ from decimal import Decimal
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.db import transaction
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -16,8 +15,9 @@ from .dates import (
     jalali_parts,
     jalali_year_span,
 )
-from .geo import OUTSIDE_IRAN, in_iran
-from .models import Booking, City, Service, User
+from .models import (
+    AdminAccount, Booking, City, LandOwner, Product, Seller, Service, ServiceProvider, WallAd, WallCategory,
+)
 from .utils import normalize_phone
 
 INPUT_CLASS = (
@@ -170,23 +170,18 @@ class RegisterForm(forms.Form):
     phone = forms.CharField(label='شماره موبایل', max_length=20)
     password = forms.CharField(label='رمز عبور', widget=PasswordToggleInput)
     password2 = forms.CharField(label='تکرار رمز عبور', widget=PasswordToggleInput)
-    role = forms.ChoiceField(
-        label='نقش',
-        choices=[item for item in User.ROLE_CHOICES if item[0] != User.ADMIN],
-    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, field in self.fields.items():
-            if name != 'role':
-                field.widget.attrs['class'] = INPUT_CLASS
+        for field in self.fields.values():
+            field.widget.attrs['class'] = INPUT_CLASS
         self.fields['phone'].widget.attrs.update({'dir': 'ltr', 'inputmode': 'numeric', 'placeholder': '0912...'})
 
     def clean_phone(self):
         phone = normalize_phone(self.cleaned_data['phone'])
         if not re.fullmatch(r'09\d{9}', phone):
             raise forms.ValidationError('شماره موبایل را با ۰۹ و ۱۱ رقم وارد کنید.')
-        if get_user_model().objects.filter(username=phone).exists():
+        if get_user_model().objects.filter(username=phone).exists() or AdminAccount.objects.filter(username=phone).exists():
             raise forms.ValidationError('این شماره قبلاً ثبت شده است.')
         return phone
 
@@ -211,59 +206,23 @@ class RegisterForm(forms.Form):
             username=data['phone'],
             password=data['password'],
             name=data['name'],
-            role=data['role'],
-            phone=data['phone'],
         )
         return user
 
 
 class AdminAccountForm(forms.Form):
-    role = forms.ChoiceField(
-        label='نقش',
-        choices=[item for item in User.ROLE_CHOICES if item[0] != User.ADMIN],
-        initial=User.FARMER,
-    )
     name = forms.CharField(label='نام', max_length=150)
-    username = forms.CharField(label='نام کاربری', max_length=20)
+    username = forms.CharField(label='شماره تماس', max_length=20)
     password = forms.CharField(label='رمز عبور', widget=PasswordToggleInput)
     password2 = forms.CharField(label='تکرار رمز عبور', required=False, widget=PasswordToggleInput)
-    bio = forms.CharField(
-        label='درباره تجربه کاری', required=False, widget=forms.Textarea(attrs={'rows': 4}),
-    )
-    experience_years = forms.IntegerField(label='سابقه کار (سال)', required=False, min_value=0, max_value=60)
-    daily_wage = forms.IntegerField(label='دستمزد روزانه (تومان)', required=False, min_value=0)
-    is_active = forms.BooleanField(label='آماده دریافت کار هستم', required=False, initial=True)
-    farm_city = forms.ModelChoiceField(
-        label='شهر زمین', queryset=City.objects.all(), required=False, empty_label='شهر زمین را انتخاب کنید',
-    )
-    farm_address = forms.CharField(
-        label='آدرس دقیق زمین', required=False, max_length=255, widget=forms.Textarea(attrs={'rows': 3}),
-    )
-    farm_latitude = forms.DecimalField(
-        label='عرض جغرافیایی', required=False, max_digits=9, decimal_places=6, widget=forms.HiddenInput,
-    )
-    farm_longitude = forms.DecimalField(
-        label='طول جغرافیایی', required=False, max_digits=9, decimal_places=6, widget=forms.HiddenInput,
-    )
-
-    worker_fields = ('bio', 'experience_years', 'daily_wage', 'is_active')
-    farmer_fields = ('farm_city', 'farm_address', 'farm_latitude', 'farm_longitude')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, field in self.fields.items():
-            if name in {'role', 'is_active', 'farm_latitude', 'farm_longitude'}:
-                continue
+        for field in self.fields.values():
             field.widget.attrs['class'] = INPUT_CLASS
         self.fields['username'].widget.attrs.update({
             'dir': 'ltr', 'inputmode': 'numeric', 'placeholder': '0912...',
         })
-        self.fields['bio'].widget.attrs['class'] += ' min-h-32 resize-y'
-        self.fields['farm_address'].widget.attrs['class'] += ' min-h-28 resize-y'
-        self.fields['farm_address'].widget.attrs['placeholder'] = 'روستا، جاده، نام قطعه یا نشانه محلی'
-        self.fields['experience_years'].widget.attrs.update({'dir': 'ltr', 'min': '0', 'max': '60'})
-        self.fields['daily_wage'].widget.attrs.update({'dir': 'ltr', 'min': '0'})
-        self.fields['is_active'].widget.attrs['class'] = 'h-5 w-5 accent-teal-600'
 
     def clean_name(self):
         name = self.cleaned_data['name'].strip()
@@ -274,15 +233,10 @@ class AdminAccountForm(forms.Form):
     def clean_username(self):
         phone = normalize_phone(self.cleaned_data['username'])
         if not re.fullmatch(r'09\d{9}', phone):
-            raise forms.ValidationError('نام کاربری همان شماره موبایل است و باید با ۰۹ و ۱۱ رقم وارد شود.')
-        if get_user_model().objects.filter(username=phone).exists():
-            raise forms.ValidationError('این نام کاربری قبلاً ثبت شده است.')
+            raise forms.ValidationError('شماره تماس را با ۰۹ و ۱۱ رقم وارد کنید. نام کاربری همان شماره است.')
+        if get_user_model().objects.filter(username=phone).exists() or AdminAccount.objects.filter(username=phone).exists():
+            raise forms.ValidationError('این شماره قبلاً ثبت شده است.')
         return phone
-
-    def selected_pks(self, key):
-        if not self.is_bound:
-            return set()
-        return {int(item) for item in self.data.getlist(key) if str(item).isdigit()}
 
     def clean(self):
         cleaned = super().clean()
@@ -291,90 +245,38 @@ class AdminAccountForm(forms.Form):
             validate_password(password)
         if password and cleaned.get('password2') and password != cleaned.get('password2'):
             self.add_error('password2', 'تکرار رمز عبور یکسان نیست.')
-        role = cleaned.get('role')
-        if role == User.WORKER:
-            for name in self.farmer_fields:
-                self.errors.pop(name, None)
-            self._clean_worker(cleaned)
-        elif role == User.FARMER:
-            for name in self.worker_fields:
-                self.errors.pop(name, None)
-            self._clean_farmer(cleaned)
         return cleaned
 
-    def _clean_worker(self, cleaned):
-        cleaned['bio'] = (cleaned.get('bio') or '').strip()
-        service_ids = self.selected_pks('services')
-        city_ids = self.selected_pks('cities')
-        services = list(Service.objects.filter(pk__in=service_ids))
-        cities = list(City.objects.filter(pk__in=city_ids))
-        if len(services) != len(service_ids):
-            self.add_error(None, 'حوزه کاری انتخاب‌شده معتبر نیست.')
-        if len(cities) != len(city_ids):
-            self.add_error(None, 'شهر محل کار انتخاب‌شده معتبر نیست.')
-        cleaned['services'] = services
-        cleaned['cities'] = cities
-        if cleaned.get('experience_years') is None:
-            cleaned['experience_years'] = 0
-        if cleaned.get('daily_wage') is None:
-            cleaned['daily_wage'] = 0
-
-    def _clean_farmer(self, cleaned):
-        cleaned['farm_address'] = (cleaned.get('farm_address') or '').strip()
-        lat = cleaned.get('farm_latitude')
-        lng = cleaned.get('farm_longitude')
-        if lat is None and lng is None:
-            return
-        if lat is None or lng is None:
-            self.add_error(None, 'برای ثبت موقعیت روی نقشه، عرض و طول جغرافیایی را با هم مشخص کنید.')
-            return
-        if not in_iran(lat, lng):
-            self.add_error('farm_latitude', OUTSIDE_IRAN)
-
-    @transaction.atomic
     def save(self, created_by=None):
         data = self.cleaned_data
-        name = data['name']
-        user = get_user_model().objects.create_user(
+        return get_user_model().objects.create_user(
             username=data['username'],
             password=data['password'],
-            name=name,
-            role=data['role'],
-            phone=data['username'],
-            created_by=created_by,
+            name=data['name'],
         )
-        if data['role'] == User.WORKER:
-            user.bio = data['bio']
-            user.experience_years = data['experience_years']
-            user.daily_wage = data['daily_wage']
-            user.accepts_jobs = bool(data.get('is_active'))
-            user.save(update_fields=['bio', 'experience_years', 'daily_wage', 'accepts_jobs'])
-            user.services.set(data['services'])
-            user.cities.set(data['cities'])
-        else:
-            user.farm_city = data['farm_city']
-            user.farm_address = data['farm_address']
-            user.farm_latitude = data.get('farm_latitude')
-            user.farm_longitude = data.get('farm_longitude')
-            user.save(update_fields=['farm_city', 'farm_address', 'farm_latitude', 'farm_longitude'])
-        return user
 
 
 class LoginForm(forms.Form):
-    phone = forms.CharField(label='شماره موبایل')
+    username = forms.CharField(label='شماره موبایل یا نام کاربری')
     password = forms.CharField(label='رمز عبور', widget=PasswordToggleInput)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = INPUT_CLASS
-        self.fields['phone'].widget.attrs.update({'dir': 'ltr', 'inputmode': 'numeric', 'placeholder': '0912...'})
+        self.fields['username'].widget.attrs.update({
+            'dir': 'ltr',
+            'placeholder': '0912... یا نام کاربری',
+        })
 
-    def clean_phone(self):
-        phone = normalize_phone(self.cleaned_data['phone'])
-        if not re.fullmatch(r'09\d{9}', phone):
-            raise forms.ValidationError('شماره موبایل معتبر نیست.')
-        return phone
+    def clean_username(self):
+        raw = (self.cleaned_data['username'] or '').strip()
+        phone = normalize_phone(raw)
+        if re.fullmatch(r'09\d{9}', phone):
+            return phone
+        if not raw:
+            raise forms.ValidationError('نام کاربری را وارد کنید.')
+        return raw
 
 
 class OrderRequestForm(forms.Form):
@@ -471,7 +373,7 @@ class BookForm(OrderRequestForm):
 
 class FarmerProfileForm(forms.ModelForm):
     class Meta:
-        model = User
+        model = LandOwner
         fields = ['farm_city', 'farm_address', 'farm_latitude', 'farm_longitude']
         labels = {
             'farm_city': 'شهر زمین',
@@ -508,7 +410,7 @@ class FarmerProfileForm(forms.ModelForm):
 
 class WorkerSettingsForm(forms.ModelForm):
     class Meta:
-        model = User
+        model = ServiceProvider
         fields = ['bio', 'experience_years', 'daily_wage', 'accepts_jobs']
         labels = {
             'bio': 'درباره تجربه کاری',
@@ -540,6 +442,211 @@ class WorkerSettingsForm(forms.ModelForm):
         return bio
 
 
+class SellerProfileForm(forms.ModelForm):
+    class Meta:
+        model = Seller
+        fields = ['store_name', 'store_city', 'store_address', 'store_phone', 'store_latitude', 'store_longitude']
+        labels = {
+            'store_name': 'نام فروشگاه',
+            'store_city': 'شهر فروشگاه',
+            'store_address': 'آدرس فروشگاه',
+            'store_phone': 'شماره تماس فروشگاه',
+            'store_latitude': 'عرض جغرافیایی',
+            'store_longitude': 'طول جغرافیایی',
+        }
+        widgets = {
+            'store_address': forms.Textarea(attrs={'rows': 3}),
+            'store_latitude': forms.HiddenInput,
+            'store_longitude': forms.HiddenInput,
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['store_city'].queryset = City.objects.all()
+        self.fields['store_city'].empty_label = 'شهر فروشگاه را انتخاب کنید'
+        self.fields['store_phone'].required = False
+        for name, field in self.fields.items():
+            if name not in ('store_latitude', 'store_longitude'):
+                field.widget.attrs['class'] = INPUT_CLASS
+        self.fields['store_name'].widget.attrs['placeholder'] = 'مثلاً نهالستان گلستان'
+        self.fields['store_name'].widget.attrs['maxlength'] = '80'
+        self.fields['store_address'].widget.attrs['placeholder'] = 'خیابان، بازار، پلاک یا نشانه محلی فروشگاه'
+        self.fields['store_address'].widget.attrs['class'] += ' min-h-28 resize-y'
+        self.fields['store_phone'].widget.attrs.update({
+            'dir': 'ltr',
+            'inputmode': 'numeric',
+            'placeholder': 'اختیاری، مثلاً ۰۲۱ یا ۰۹۱۲',
+        })
+        self.fields['store_latitude'].required = False
+        self.fields['store_longitude'].required = False
+
+    def clean_store_name(self):
+        name = self.cleaned_data['store_name'].strip()
+        if len(name) < 2:
+            raise forms.ValidationError('نام فروشگاه را کامل‌تر بنویسید.')
+        return name
+
+    def clean_store_address(self):
+        return self.cleaned_data['store_address'].strip()
+
+    def clean_store_phone(self):
+        raw = (self.cleaned_data.get('store_phone') or '').strip()
+        if not raw:
+            return ''
+        phone = normalize_phone(raw)
+        if not re.fullmatch(r'0\d{7,10}', phone):
+            raise forms.ValidationError('شماره تماس فروشگاه را با پیش‌شماره شهر یا ۰۹ وارد کنید.')
+        return phone
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('store_latitude') is None or cleaned.get('store_longitude') is None:
+            self.add_error('store_latitude', 'موقعیت فروشگاه را روی نقشه مشخص کنید.')
+        return cleaned
+
+
+class ProductImageInput(forms.ClearableFileInput):
+    template_name = 'marketplace/widgets/product_image.html'
+
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ['name', 'description', 'price', 'unit', 'image', 'is_available']
+        labels = {
+            'name': 'نام محصول',
+            'description': 'مشخصات',
+            'price': 'قیمت (تومان)',
+            'unit': 'واحد',
+            'image': 'تصویر',
+            'is_available': 'در بازار نشان داده شود',
+        }
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 5}),
+            'image': ProductImageInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name not in ('is_available', 'image'):
+                field.widget.attrs['class'] = INPUT_CLASS
+        self.fields['image'].required = False
+        self.fields['image'].widget.attrs['accept'] = 'image/*'
+        self.fields['description'].widget.attrs['class'] += ' min-h-32 resize-y'
+        self.fields['description'].widget.attrs['placeholder'] = 'وزن، بسته‌بندی، نوع محصول و شرط تحویل'
+        self.fields['price'].widget.attrs.update({'dir': 'ltr', 'min': '0'})
+        self.fields['name'].widget.attrs['placeholder'] = 'مثلاً بذر گندم پیشگام'
+        self.fields['is_available'].widget.attrs['class'] = 'h-5 w-5 accent-teal-600'
+
+    def clean_name(self):
+        name = self.cleaned_data['name'].strip()
+        if len(name) < 2:
+            raise forms.ValidationError('نام محصول را بنویسید.')
+        return name
+
+    def clean_description(self):
+        description = self.cleaned_data['description'].strip()
+        if len(description) < 10:
+            raise forms.ValidationError('مشخصات محصول را حداقل در ۱۰ نویسه بنویسید.')
+        return description
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if not image or not hasattr(image, 'content_type'):
+            return image
+        if image.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('حجم تصویر باید کمتر از ۵ مگابایت باشد.')
+        if not (image.content_type or '').startswith('image/'):
+            raise forms.ValidationError('فقط فایل تصویری مجاز است.')
+        return image
+
+
 class ReviewForm(forms.Form):
     rating = forms.IntegerField(min_value=1, max_value=5, label='امتیاز')
     comment = forms.CharField(label='نظر', max_length=500, widget=forms.Textarea(attrs={'rows': 3, 'class': INPUT_CLASS}))
+
+
+WALL_INPUT = (
+    'w-full border border-[#e4e4e4] bg-white px-3 py-2.5 text-sm text-[#222] outline-none '
+    'placeholder:text-[#9a9a9a] focus:border-[#a62626]'
+)
+
+
+class WallAdForm(forms.ModelForm):
+    class Meta:
+        model = WallAd
+        fields = ['category', 'city', 'district', 'title', 'description', 'price', 'price_note', 'image']
+        labels = {
+            'category': 'دسته',
+            'city': 'شهر',
+            'district': 'روستا یا محله',
+            'title': 'عنوان آگهی',
+            'description': 'توضیحات',
+            'price': 'قیمت (تومان)',
+            'price_note': 'توضیح قیمت',
+            'image': 'عکس آگهی',
+        }
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 6}),
+            'image': ProductImageInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].queryset = WallCategory.objects.all()
+        self.fields['category'].empty_label = 'انتخاب دسته'
+        self.fields['city'].queryset = City.objects.all()
+        self.fields['city'].empty_label = 'انتخاب شهر'
+        self.fields['price'].required = False
+        self.fields['image'].required = False
+        self.fields['image'].widget.attrs['accept'] = 'image/*'
+        self.fields['price_note'].help_text = 'مثلاً هر کیلو، روزانه یا پرداخت ماهانه'
+        for name, field in self.fields.items():
+            if name == 'image':
+                continue
+            field.widget.attrs['class'] = WALL_INPUT
+        self.fields['title'].widget.attrs['placeholder'] = 'مثلاً بذر گندم پیشگام، کیسه ۲۵ کیلویی'
+        self.fields['district'].widget.attrs['placeholder'] = 'مثلاً وکیل‌آباد یا روستای فرومد'
+        self.fields['price'].widget.attrs.update({
+            'dir': 'ltr',
+            'inputmode': 'numeric',
+            'min': '0',
+            'placeholder': 'خالی یعنی توافقی',
+        })
+        self.fields['price_note'].widget.attrs['placeholder'] = 'هر کیلو'
+        self.fields['description'].widget.attrs['placeholder'] = 'مقدار، کیفیت، محل تحویل و شرط بازدید را بنویسید'
+
+    def clean_title(self):
+        title = self.cleaned_data['title'].strip()
+        if len(title) < 3:
+            raise forms.ValidationError('عنوان آگهی را بنویسید.')
+        return title
+
+    def clean_description(self):
+        description = self.cleaned_data['description'].strip()
+        if len(description) < 20:
+            raise forms.ValidationError('توضیحات را حداقل در ۲۰ نویسه بنویسید.')
+        return description
+
+    def clean_district(self):
+        return (self.cleaned_data.get('district') or '').strip()
+
+    def clean_price_note(self):
+        return (self.cleaned_data.get('price_note') or '').strip()
+
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if not price:
+            return None
+        return price
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if not image or not hasattr(image, 'content_type'):
+            return image
+        if image.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('حجم تصویر باید کمتر از ۵ مگابایت باشد.')
+        if not (image.content_type or '').startswith('image/'):
+            raise forms.ValidationError('فقط فایل تصویری مجاز است.')
+        return image

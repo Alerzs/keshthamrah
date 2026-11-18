@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/output.css' %}?v=13">
+  <link rel="stylesheet" href="{% static 'css/output.css' %}?v=26">
   <style>
     .password-field { position: relative; }
     .password-field > input { padding-left: 2.75rem; }
@@ -33,16 +33,22 @@
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-paper pb-20 font-sans text-ink antialiased lg:pb-0">
+<body class="bg-paper pb-24 font-sans text-ink antialiased lg:pb-0{% block body_class %}{% endblock %}">
   <a href="#content" class="sr-only focus:not-sr-only focus:absolute focus:right-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">رفتن به محتوا</a>
   {% include "marketplace/partials/header.html" %}
-  {% if current_profile.role == 'farmer' and current_profile.completion_percent < 100 %}
+  {% if not wall_nav and land_profile and land_profile.completion_percent < 100 %}
     <a href="{% url 'farmer_profile' %}" class="block bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
-      پروفایل زمین {{ current_profile.completion_percent|fa_digits }}٪ کامل است. شهر و آدرس زمین را ثبت کنید.
+      پروفایل زمین {{ land_profile.completion_percent|fa_digits }}٪ کامل است. شهر و آدرس زمین را ثبت کنید.
     </a>
-  {% elif current_profile.role == 'worker' and current_profile.completion_percent < 100 %}
+  {% endif %}
+  {% if not wall_nav and service_profile and service_profile.completion_percent < 100 %}
     <a href="{% url 'worker_profile' %}" class="block bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
-      پروفایل کاری {{ current_profile.completion_percent|fa_digits }}٪ کامل است.
+      پروفایل کاری {{ service_profile.completion_percent|fa_digits }}٪ کامل است.
+    </a>
+  {% endif %}
+  {% if not wall_nav and seller_profile and seller_profile.completion_percent < 100 %}
+    <a href="{% url 'seller_profile' %}" class="block bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+      فروشگاه {{ seller_profile.completion_percent|fa_digits }}٪ کامل است. آدرس و موقعیت فروشگاه را ثبت کنید.
     </a>
   {% endif %}
   {% if messages %}
@@ -62,6 +68,11 @@
     const menu = document.getElementById('mobile-menu');
     const accountBtn = document.getElementById('account-btn');
     const accountPanel = document.getElementById('account-panel');
+    const navMenus = [
+      { root: document.getElementById('bazaar-menu'), btn: document.getElementById('bazaar-btn'), panel: document.getElementById('bazaar-panel') },
+      { root: document.getElementById('hamrah-menu'), btn: document.getElementById('hamrah-btn'), panel: document.getElementById('hamrah-panel') },
+      { root: document.getElementById('wall-menu'), btn: document.getElementById('wall-btn'), panel: document.getElementById('wall-panel') },
+    ].filter((item) => item.root && item.btn && item.panel);
 
     function setAccountOpen(open) {
       if (!accountBtn || !accountPanel) return;
@@ -69,29 +80,75 @@
       accountBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
+    function setNavOpen(item, open) {
+      item.panel.classList.toggle('hidden', !open);
+      item.btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function closeNavMenus(except) {
+      navMenus.forEach((item) => {
+        if (item !== except) setNavOpen(item, false);
+      });
+    }
+
     if (menuBtn && menu) {
       menuBtn.addEventListener('click', () => {
         menu.classList.toggle('hidden');
         setAccountOpen(false);
+        closeNavMenus();
       });
     }
+    navMenus.forEach((item) => {
+      item.root.addEventListener('mouseenter', () => setNavOpen(item, true));
+      item.root.addEventListener('mouseleave', () => setNavOpen(item, false));
+      item.btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const open = item.btn.getAttribute('aria-expanded') !== 'true';
+        setNavOpen(item, open);
+        if (open) {
+          setAccountOpen(false);
+          closeNavMenus(item);
+        }
+      });
+    });
     if (accountBtn && accountPanel) {
       accountBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         const open = accountBtn.getAttribute('aria-expanded') !== 'true';
         setAccountOpen(open);
         if (open && menu) menu.classList.add('hidden');
-      });
-      document.addEventListener('click', (event) => {
-        if (!accountPanel.contains(event.target) && event.target !== accountBtn) setAccountOpen(false);
-      });
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && accountBtn.getAttribute('aria-expanded') === 'true') {
-          setAccountOpen(false);
-          accountBtn.focus();
-        }
+        if (open) closeNavMenus();
       });
     }
+    document.addEventListener('click', (event) => {
+      if (accountPanel && accountBtn && !accountPanel.contains(event.target) && event.target !== accountBtn) setAccountOpen(false);
+      navMenus.forEach((item) => {
+        if (!item.root.contains(event.target)) setNavOpen(item, false);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (accountBtn && accountBtn.getAttribute('aria-expanded') === 'true') {
+        setAccountOpen(false);
+        accountBtn.focus();
+      }
+      navMenus.forEach((item) => {
+        if (item.btn.getAttribute('aria-expanded') === 'true') {
+          setNavOpen(item, false);
+          item.btn.focus();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-file-input]').forEach((input) => {
+      const name = input.parentElement.querySelector('.file-name');
+      if (!name) return;
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        name.textContent = file ? file.name : name.dataset.empty;
+      });
+    });
 
     document.querySelectorAll('.password-toggle').forEach((button) => {
       const input = button.parentElement.querySelector('input');

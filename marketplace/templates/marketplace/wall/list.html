@@ -1,0 +1,89 @@
+{% extends "marketplace/base.html" %}
+{% load fa %}
+
+{% block title %}آگهی‌های کشاورزی {{ city.name }}{% if current_category %} — {{ current_category.name }}{% endif %}{% endblock %}
+{% block body_class %} wall-mode{% endblock %}
+
+{% block content %}
+{% include "marketplace/wall/partials/bar.html" %}
+<section class="overflow-x-clip bg-white">
+  <h1 class="sr-only">آگهی‌های کشاورزی {{ city.name }}{% if current_category %}، {{ current_category.name }}{% endif %}</h1>
+  <div class="mx-auto grid w-full min-w-0 max-w-6xl items-start gap-6 px-4 py-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <aside class="min-w-0 lg:sticky lg:top-36">
+      <nav class="no-scrollbar flex w-full min-w-0 gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-0 lg:overflow-visible" aria-label="دسته‌ها">
+        <a href="{% querystring cat=None page=None %}" class="flex shrink-0 items-center gap-2 rounded-full border border-[#eee] px-3 py-2 text-sm lg:rounded-none lg:border-0 lg:px-1 lg:py-2.5 {% if not current_category %}font-bold text-[#a62626]{% else %}text-[#333]{% endif %}">
+          همه آگهی‌ها
+        </a>
+        {% for category in categories %}
+          <a href="{% querystring cat=category.slug page=None %}" class="flex shrink-0 items-center gap-2 rounded-full border border-[#eee] px-3 py-2 text-sm lg:rounded-none lg:border-0 lg:px-1 lg:py-2.5 {% if current_category.pk == category.pk %}font-bold text-[#a62626]{% else %}text-[#333] hover:text-[#a62626]{% endif %}" {% if current_category.pk == category.pk %}aria-current="page"{% endif %}>
+            <span class="{% if current_category.pk == category.pk %}text-[#a62626]{% else %}text-[#666]{% endif %}">{% include "marketplace/wall/partials/icon.html" with slug=category.slug %}</span>
+            {{ category.name }}
+          </a>
+        {% endfor %}
+      </nav>
+
+      <details id="wall-filter-box" class="mt-3 border-t border-[#eee]">
+      <summary class="cursor-pointer py-3 text-sm font-bold text-[#222] lg:hidden">فیلترها</summary>
+      <form id="wall-filters" method="get" class="space-y-4 pb-2 lg:pt-4">
+        {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+        {% if current_category %}<input type="hidden" name="cat" value="{{ current_category.slug }}">{% endif %}
+        <div>
+          <label for="wall-district" class="mb-2 block text-sm text-[#666]">روستا یا محله</label>
+          <input id="wall-district" type="search" name="district" value="{{ district }}" placeholder="مثلاً وکیل‌آباد" class="w-full border-b border-[#e5e5e5] bg-transparent px-1 py-2 text-sm outline-none focus:border-[#a62626]">
+        </div>
+        <fieldset>
+          <legend class="text-sm text-[#666]">قیمت <span class="text-xs">(تومان)</span></legend>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <input type="text" inputmode="numeric" name="min_price" value="{{ min_price }}" placeholder="از" aria-label="قیمت از" class="w-full border-b border-[#e5e5e5] bg-transparent px-1 py-2 text-sm outline-none focus:border-[#a62626]">
+            <input type="text" inputmode="numeric" name="max_price" value="{{ max_price }}" placeholder="تا" aria-label="قیمت تا" class="w-full border-b border-[#e5e5e5] bg-transparent px-1 py-2 text-sm outline-none focus:border-[#a62626]">
+          </div>
+        </fieldset>
+        <label class="flex items-center justify-between gap-3 border-t border-[#f3f3f3] py-3 text-sm text-[#333]">
+          <span>عکس‌دار</span>
+          <input type="checkbox" name="photo" value="1" class="h-5 w-5 accent-[#a62626]" {% if photo %}checked{% endif %}>
+        </label>
+        <div class="border-t border-[#f3f3f3] pt-3">
+          <label for="wall-sort" class="mb-2 block text-sm text-[#666]">مرتب‌سازی</label>
+          <select id="wall-sort" name="sort" class="w-full bg-transparent py-2 text-sm outline-none">
+            <option value="new" {% if sort == 'new' %}selected{% endif %}>جدیدترین</option>
+            <option value="cheap" {% if sort == 'cheap' %}selected{% endif %}>ارزان‌ترین</option>
+            <option value="expensive" {% if sort == 'expensive' %}selected{% endif %}>گران‌ترین</option>
+          </select>
+        </div>
+        <button type="submit" class="text-sm font-bold text-[#a62626]">اعمال فیلتر</button>
+        {% if filters_active %}
+          <a href="{% url 'wall_city' city.pk %}" class="ms-3 text-sm text-[#888]">حذف فیلتر</a>
+        {% endif %}
+      </form>
+      </details>
+    </aside>
+
+    <div class="min-w-0">
+      <p class="mb-1 text-xs text-[#8a8a8a]">{{ page_obj.paginator.count|fa_digits }} آگهی در {{ city.name }}</p>
+      {% if page_obj.object_list %}
+        <div>
+          {% for ad in page_obj %}
+            {% include "marketplace/wall/partials/row.html" with ad=ad linked=True %}
+          {% endfor %}
+        </div>
+        {% include "marketplace/partials/pagination.html" %}
+      {% else %}
+        <div class="px-4 py-16 text-center">
+          <p class="text-lg font-bold text-[#222]">موردی برای نمایش وجود ندارد</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const wallFilters = document.getElementById('wall-filters');
+  if (wallFilters) {
+    wallFilters.addEventListener('change', (event) => {
+      if (event.target.matches('select, input[type="checkbox"]')) wallFilters.requestSubmit();
+    });
+  }
+</script>
+{% endblock %}

@@ -10,7 +10,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from marketplace.models import Booking, City, Review, Service
+from marketplace.models import (
+    AdminAccount, Booking, City, LandOwner, Product, Review, Seller, Service, ServiceProvider, WallAd, WallCategory,
+)
 
 User = get_user_model()
 
@@ -25,7 +27,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'کشت همراه')
         self.assertContains(response, 'برداشت گندم و جو')
-        self.assertContains(response, reverse('order', args=['wheat-harvest']))
+        self.assertContains(response, reverse('services'))
 
     def test_suggests_workers_by_service_and_city(self):
         city = City.objects.get(name='مشهد')
@@ -187,29 +189,29 @@ class MarketplaceFlowTests(TestCase):
         self.assertNotContains(jobs, 'جاده کلات، کیلومتر ۱۲')
         self.assertNotContains(jobs, '۰۹۱۲۱۱۱۱۱۱۱')
 
-    def test_worker_cannot_book(self):
+    def test_service_provider_without_land_is_sent_to_register_land(self):
         self.client.login(username='09130000001', password='demo1234')
         other = User.objects.get(username='09130000002')
         response = self.client.get(reverse('book', args=[other.pk]))
-        self.assertRedirects(response, reverse('home'))
+        self.assertRedirects(response, reverse('farmer_profile'))
 
-    def test_worker_cannot_start_a_service_request_from_home(self):
+    def test_service_provider_can_request_work_for_a_land(self):
         self.client.login(username='09130000001', password='demo1234')
         other = User.objects.get(username='09130000002')
         home = self.client.get(reverse('home'))
-        self.assertNotContains(home, reverse('order', args=['wheat-harvest']))
-        self.assertContains(home, 'ثبت درخواست جدید برای صاحبان زمین است')
+        self.assertContains(home, 'ثبت زمین')
+        self.assertContains(home, 'ثبت خدمت')
 
         category = self.client.get(reverse('category', args=['planting']))
-        self.assertNotContains(category, 'انتخاب و ادامه')
-        self.assertNotContains(category, reverse('order', args=['wheat-harvest']))
+        self.assertContains(category, 'انتخاب و ادامه')
+        self.assertContains(category, reverse('order', args=['wheat-harvest']))
 
         listing = self.client.get(reverse('workers'))
-        self.assertNotContains(listing, reverse('book', args=[other.pk]))
+        self.assertContains(listing, reverse('book', args=[other.pk]))
 
         detail = self.client.get(reverse('worker_detail', args=[other.pk]))
-        self.assertNotContains(detail, reverse('book', args=[other.pk]))
-        self.assertNotContains(detail, reverse('order', args=['classic-irrigation']))
+        self.assertContains(detail, reverse('book', args=[other.pk]))
+        self.assertContains(detail, reverse('order', args=['classic-irrigation']))
 
         city = City.objects.get(name='شیراز')
         response = self.client.post(reverse('order', args=['spraying']), {
@@ -217,9 +219,10 @@ class MarketplaceFlowTests(TestCase):
             'address': 'جاده مرودشت، قطعه جنوبی باغ',
             'work_date': (timezone.localdate() + timedelta(days=2)).isoformat(),
             'land_area': '1.5',
-            'note': 'نباید ثبت شود',
+            'note': 'سمپاشی برای زمین خودم',
         })
-        self.assertRedirects(response, reverse('worker_jobs'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/workers/', response['Location'])
         self.assertEqual(Booking.objects.count(), 0)
 
     def test_worker_list_renders_pages(self):
@@ -322,7 +325,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertNotContains(revealed, 'ادمین')
         self.client.post(reverse('booking_complete', args=[booking.pk]))
         booking.refresh_from_db()
-        worker_profile.refresh_from_db()
+        worker_profile = User.objects.get(pk=worker_profile.pk)
         self.assertEqual(booking.status, Booking.DONE)
         self.assertEqual(worker_profile.jobs_done, jobs_before + 1)
         reviewed = self.client.post(reverse('booking_review', args=[booking.pk]), {
@@ -451,7 +454,7 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(invalid.status_code, 200)
         self.assertContains(invalid, 'تاریخ جلالی معتبر نیست')
 
-        admin = User.objects.get(username='09124444444')
+        admin = AdminAccount.objects.get(username='09124444444')
         booking.admin_approved = True
         booking.confirmed_by = admin
         booking.confirmed_at = timezone.now()
@@ -583,102 +586,44 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response['Location'])
 
-    def test_admin_creates_worker_and_farmer_accounts(self):
+    def test_admin_creates_a_base_account_without_profiles(self):
         self.client.login(username='09124444444', password='demo1234')
         page = self.client.get(reverse('admin_create_account'))
         self.assertContains(page, 'افزودن حساب')
-        self.assertContains(page, 'مشخصات زمین')
-        self.assertContains(page, 'مشخصات کاری')
-        service = Service.objects.get(slug='wheat-harvest')
-        city = City.objects.get(name='مشهد')
+        self.assertContains(page, 'شماره تماس')
+        self.assertNotContains(page, 'مشخصات زمین')
+        self.assertNotContains(page, 'مشخصات کاری')
 
-        created_worker = self.client.post(reverse('admin_create_account'), {
-            'role': 'worker',
+        created = self.client.post(reverse('admin_create_account'), {
             'name': 'علی رضایی',
             'username': '09125556677',
             'password': 'workerpass',
             'password2': 'workerpass',
-            'bio': 'برداشت گندم و رانندگی تراکتور در مشهد',
-            'experience_years': '8',
-            'daily_wage': '900000',
-            'is_active': 'on',
-            'services': [str(service.pk)],
-            'cities': [str(city.pk)],
         })
-        self.assertRedirects(created_worker, reverse('admin_panel'))
-        worker_user = User.objects.get(username='09125556677')
-        self.assertEqual(worker_user.name, 'علی رضایی')
-        self.assertEqual(worker_user.role, 'worker')
-        self.assertEqual(worker_user.phone, '09125556677')
-        self.assertTrue(worker_user.check_password('workerpass'))
-        self.assertEqual(worker_user.experience_years, 8)
-        self.assertEqual(worker_user.daily_wage, 900000)
-        self.assertTrue(worker_user.services.filter(pk=service.pk).exists())
-        self.assertTrue(worker_user.cities.filter(pk=city.pk).exists())
-        self.assertEqual(worker_user.completion_percent, 100)
-        admin = User.objects.get(username='09124444444')
-        self.assertEqual(worker_user.created_by, admin)
-        listing = self.client.get(reverse('workers'), {'service': 'wheat-harvest', 'city': city.pk})
-        self.assertContains(listing, 'علی رضایی')
-
-        created_farmer = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
-            'name': 'مزرعه نمونه شمال',
-            'username': '09128887766',
-            'password': 'farmerpass',
-            'password2': 'farmerpass',
-            'farm_city': city.pk,
-            'farm_address': 'جاده کلات، کیلومتر ۲۰، قطعه شمالی',
-            'farm_latitude': '36.300000',
-            'farm_longitude': '59.600000',
-        })
-        self.assertRedirects(created_farmer, reverse('admin_panel'))
-        farmer_user = User.objects.get(username='09128887766')
-        self.assertEqual(farmer_user.role, 'farmer')
-        self.assertEqual(farmer_user.farm_city, city)
-        self.assertEqual(farmer_user.farm_address, 'جاده کلات، کیلومتر ۲۰، قطعه شمالی')
-        self.assertTrue(farmer_user.has_farm_location)
-        self.assertEqual(farmer_user.completion_percent, 100)
-        self.assertEqual(farmer_user.created_by, admin)
-        self.assertEqual(farmer_user.role, 'farmer')
-        self.assertFalse(farmer_user.services.exists())
-        people = self.client.get(reverse('admin_people'), {'q': '09128887766'})
-        self.assertContains(people, 'ثبت‌شده توسط لیلا احمدی')
-        workers_page = self.client.get(reverse('admin_people'), {'role': 'worker', 'q': '09125556677'})
-        self.assertContains(workers_page, 'ثبت‌شده توسط لیلا احمدی')
+        self.assertRedirects(created, reverse('admin_panel'))
+        user = User.objects.get(username='09125556677')
+        self.assertEqual(user.name, 'علی رضایی')
+        self.assertEqual(user.phone, '09125556677')
+        self.assertTrue(user.check_password('workerpass'))
+        self.assertFalse(LandOwner.objects.filter(user=user).exists())
+        self.assertFalse(ServiceProvider.objects.filter(user=user).exists())
         self.client.logout()
-        self.assertTrue(self.client.login(username='09128887766', password='farmerpass'))
+        self.assertTrue(self.client.login(username='09125556677', password='workerpass'))
 
     def test_admin_can_create_accounts_with_only_login_fields(self):
         self.client.login(username='09124444444', password='demo1234')
-        worker = self.client.post(reverse('admin_create_account'), {
-            'role': 'worker',
-            'name': 'بدون حوزه',
-            'username': '09120000000',
-            'password': 'workerpass',
-        })
-        self.assertRedirects(worker, reverse('admin_panel'))
-        worker_user = User.objects.get(username='09120000000')
-        self.assertEqual(worker_user.bio, '')
-        self.assertFalse(worker_user.services.exists())
-        self.assertFalse(worker_user.cities.exists())
-        self.assertLess(worker_user.completion_percent, 100)
-
-        farmer = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
+        created = self.client.post(reverse('admin_create_account'), {
             'name': 'بدون زمین',
             'username': '09121110000',
             'password': 'farmerpass',
             'farm_address': 'کوتاه',
         })
-        self.assertRedirects(farmer, reverse('admin_panel'))
+        self.assertRedirects(created, reverse('admin_panel'))
         farmer_user = User.objects.get(username='09121110000')
-        self.assertIsNone(farmer_user.farm_city)
-        self.assertEqual(farmer_user.farm_address, 'کوتاه')
-        self.assertLess(farmer_user.completion_percent, 100)
+        self.assertFalse(LandOwner.objects.filter(user=farmer_user).exists())
+        self.assertFalse(ServiceProvider.objects.filter(user=farmer_user).exists())
 
         mismatch = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
             'name': 'رمز ناهماهنگ',
             'username': '09123334455',
             'password': 'farmerpass',
@@ -689,14 +634,13 @@ class MarketplaceFlowTests(TestCase):
         self.assertFalse(User.objects.filter(username='09123334455').exists())
 
         duplicate = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
             'name': 'تکراری',
             'username': '09121111111',
             'password': 'farmerpass',
             'password2': 'farmerpass',
         })
         self.assertEqual(duplicate.status_code, 200)
-        self.assertContains(duplicate, 'این نام کاربری قبلاً ثبت شده است')
+        self.assertContains(duplicate, 'این شماره قبلاً ثبت شده است')
 
     def test_only_admin_can_open_account_form(self):
         guest = self.client.get(reverse('admin_create_account'))
@@ -1017,19 +961,15 @@ class MarketplaceFlowTests(TestCase):
         sheet = load_workbook(BytesIO(response.content)).active
         rows = list(sheet.iter_rows(values_only=True))
         self.assertEqual(rows[0][0], 'نام')
-        self.assertEqual(rows[0][3], 'موبایل')
+        self.assertEqual(rows[0][2], 'موبایل')
+        self.assertNotIn('نقش', rows[0])
+        self.assertNotIn('شهر زمین', rows[0])
+        self.assertNotIn('دستمزد روزانه', rows[0])
         names = {row[0] for row in rows[1:]}
         self.assertIn('سامان کریمی', names)
         self.assertIn('رضا محمدی', names)
-
-        farmers = self.client.get(export_url, {'role__exact': 'farmer'})
-        farmer_rows = list(load_workbook(BytesIO(farmers.content)).active.iter_rows(min_row=2, values_only=True))
-        farmer_names = {row[0] for row in farmer_rows}
-        self.assertIn('سامان کریمی', farmer_names)
-        self.assertNotIn('رضا محمدی', farmer_names)
-        saman = next(row for row in farmer_rows if row[0] == 'سامان کریمی')
-        self.assertEqual(saman[2], 'صاحب زمین')
-        self.assertEqual(saman[3], '09121111111')
+        saman = next(row for row in rows[1:] if row[0] == 'سامان کریمی')
+        self.assertEqual(saman[2], '09121111111')
 
         searched = self.client.get(export_url, {'q': 'رضا'})
         searched_names = {
@@ -1043,24 +983,35 @@ class MarketplaceFlowTests(TestCase):
         worker = User.objects.get(username='09130000001')
         change = self.client.get(reverse('admin:marketplace_user_change', args=[worker.pk]))
         self.assertEqual(change.status_code, 200)
-        self.assertContains(change, 'زمین')
-        self.assertContains(change, 'سرویس‌دهنده')
-        self.assertContains(change, 'حوزه کاری')
-        self.assertContains(change, worker.bio[:24])
+        self.assertContains(change, 'شماره تماس')
+        self.assertNotContains(change, 'حوزه کاری')
+        self.assertNotContains(change, 'آدرس زمین')
         self.assertNotContains(change, 'id_email')
-        creator_select = change.content.decode().split('id="id_created_by"', 1)[1].split('</select>', 1)[0]
-        self.assertIn('لیلا احمدی', creator_select)
-        self.assertNotIn('رضا محمدی', creator_select)
-        self.assertNotIn('سامان کریمی', creator_select)
 
         add = self.client.get(reverse('admin:marketplace_user_add'))
         self.assertEqual(add.status_code, 200)
-        self.assertContains(add, 'نقش')
-        self.assertContains(add, 'آماده دریافت کار')
+        self.assertContains(add, 'شماره تماس')
+        self.assertContains(add, 'نام')
+        self.assertNotContains(add, 'آدرس زمین')
+        self.assertNotContains(add, 'آماده دریافت کار')
+
+        provider = ServiceProvider.objects.get(user=worker)
+        provider_change = self.client.get(reverse('admin:marketplace_serviceprovider_change', args=[provider.pk]))
+        self.assertContains(provider_change, 'حوزه کاری')
+        self.assertContains(provider_change, 'آماده دریافت کار')
+        self.assertContains(provider_change, worker.bio[:24])
 
         listing = self.client.get(reverse('admin:marketplace_user_changelist'))
-        self.assertContains(listing, 'نقش')
-        self.assertContains(listing, 'دستمزد روزانه')
+        self.assertNotContains(listing, 'نقش')
+        self.assertNotContains(listing, 'دستمزد روزانه')
+        self.assertNotContains(listing, 'شهر زمین')
+        lands = self.client.get(reverse('admin:marketplace_landowner_changelist'))
+        self.assertContains(lands, 'شهر زمین')
+        providers = self.client.get(reverse('admin:marketplace_serviceprovider_changelist'))
+        self.assertContains(providers, 'دستمزد روزانه')
+        self.assertContains(providers, 'امتیاز')
+        self.assertContains(providers, 'کارهای انجام‌شده')
+        self.assertContains(providers, 'آماده دریافت کار')
 
         booking_add = self.client.get(reverse('admin:marketplace_booking_add'))
         self.assertEqual(booking_add.status_code, 200)
@@ -1076,4 +1027,423 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(review_add.status_code, 200)
         review_html = review_add.content.decode()
         self.assertIn('رضا محمدی', review_html.split('id="id_worker"', 1)[1].split('</select>', 1)[0])
+
+    def test_one_account_can_register_land_and_service(self):
+        created = self.client.post(reverse('register'), {
+            'name': 'نرگس راد',
+            'phone': '09127778899',
+            'password': 'demo1234',
+            'password2': 'demo1234',
+        })
+        self.assertRedirects(created, reverse('home'))
+        user = User.objects.get(username='09127778899')
+        self.assertFalse(LandOwner.objects.filter(user=user).exists())
+        self.assertFalse(ServiceProvider.objects.filter(user=user).exists())
+        home = self.client.get(reverse('home'))
+        self.assertContains(home, 'ثبت زمین')
+        self.assertContains(home, 'ثبت خدمت')
+
+        city = City.objects.get(name='مشهد')
+        land = self.client.post(reverse('farmer_profile'), {
+            'farm_city': city.pk,
+            'farm_address': 'جاده کلات، کیلومتر ۱۲، قطعه نمونه',
+        })
+        self.assertRedirects(land, reverse('home'))
+        self.assertTrue(LandOwner.objects.filter(user=user, farm_city=city).exists())
+
+        service = Service.objects.get(slug='wheat-harvest')
+        saved = self.client.post(reverse('worker_profile'), {
+            'bio': 'برداشت گندم در زمین‌های مشهد',
+            'experience_years': '3',
+            'daily_wage': '700000',
+            'accepts_jobs': 'on',
+            'services': [str(service.pk)],
+            'cities': [str(city.pk)],
+        })
+        self.assertRedirects(saved, reverse('worker_profile'))
+        user.refresh_from_db()
+        self.assertTrue(user.service_profile.services.filter(pk=service.pk).exists())
+        self.assertTrue(LandOwner.objects.filter(user=user).exists())
+        menu = self.client.get(reverse('home'))
+        self.assertContains(menu, reverse('bookings'))
+        self.assertContains(menu, reverse('worker_jobs'))
+
+    def test_site_admin_opens_the_django_admin(self):
+        logged_in = self.client.post(reverse('admin:login'), {
+            'username': '09124444444',
+            'password': 'demo1234',
+            'next': reverse('admin:index'),
+        })
+        self.assertRedirects(logged_in, reverse('admin:index'))
+        index = self.client.get(reverse('admin:index'))
+        self.assertContains(index, 'مدیریت کشت همراه')
+        self.assertContains(index, 'کاربران')
+        self.assertContains(index, 'صاحبان زمین')
+        self.assertContains(index, 'سرویس‌دهندگان')
+        users = self.client.get(reverse('admin:marketplace_user_changelist'))
+        self.assertContains(users, 'سامان کریمی')
+        self.assertContains(users, 'رضا محمدی')
+        city = City.objects.get(name='مشهد')
+        renamed = self.client.post(reverse('admin:marketplace_city_change', args=[city.pk]), {
+            'name': city.name,
+            'province': city.province,
+            'is_featured': 'on',
+            'featured_order': city.featured_order,
+        })
+        self.assertRedirects(renamed, reverse('admin:marketplace_city_changelist'))
+
+    def test_admin_logs_in_with_username(self):
+        AdminAccount.objects.create_account('leila', 'secret-pass', name='لیلا')
+        page = self.client.get(reverse('login'))
+        self.assertContains(page, 'نام کاربری')
+        response = self.client.post(reverse('login'), {
+            'username': 'leila',
+            'password': 'secret-pass',
+        })
+        self.assertRedirects(response, reverse('admin_panel'))
+
+    def test_bazaar_shows_products_and_contact_on_the_product_page(self):
+        listing = self.client.get(reverse('bazaar'))
+        self.assertContains(listing, 'بذر گندم پیشگام')
+        self.assertContains(listing, 'بازرگانی بازرگان')
+        self.assertContains(listing, 'نهال بادام')
+        self.assertNotContains(listing, '05137654321')
+        self.assertNotContains(listing, '09125550001')
+
+        wheat = Product.objects.get(name='بذر گندم پیشگام')
+        detail = self.client.get(wheat.get_absolute_url())
+        self.assertContains(detail, 'بازرگانی بازرگان')
+        self.assertContains(detail, 'فرهاد بازرگان')
+        self.assertContains(detail, 'بذر گواهی‌شده برای کشت پاییزه')
+        self.assertContains(detail, 'بلوار وکیل‌آباد، بازار روز کشاورزی، غرفه ۱۲')
+        self.assertContains(detail, 'برای دیدن شماره وارد شوید')
+        self.assertNotContains(detail, '05137654321')
+        self.assertNotContains(detail, '09125550001')
+        self.assertNotContains(detail, 'شماره فروشگاه')
+        self.assertNotContains(detail, 'شماره فروشنده')
+
+        sapling = Product.objects.get(name='نهال بادام')
+        shop = self.client.get(sapling.get_absolute_url())
+        self.assertContains(shop, 'نهالستان گلستان')
+        self.assertContains(shop, 'برای دیدن شماره وارد شوید')
+        self.assertNotContains(shop, '09125550002')
+        self.assertNotContains(shop, 'شماره فروشنده')
+        self.assertNotContains(shop, 'شماره فروشگاه')
+
+        self.client.login(username='09121111111', password='demo1234')
+        detail = self.client.get(wheat.get_absolute_url())
+        self.assertContains(detail, '05137654321')
+        self.assertContains(detail, '09125550001')
+        self.assertContains(detail, 'شماره فروشگاه')
+        self.assertContains(detail, 'شماره فروشنده')
+        self.assertNotContains(detail, 'برای دیدن شماره وارد شوید')
+        shop = self.client.get(sapling.get_absolute_url())
+        self.assertContains(shop, '09125550002')
+        self.assertContains(shop, 'شماره فروشنده')
+        self.assertNotContains(shop, 'شماره فروشگاه')
+        self.client.logout()
+
+        mashhad = City.objects.get(name='مشهد')
+        filtered = self.client.get(reverse('bazaar'), {'city': mashhad.pk, 'q': 'کود'})
+        self.assertContains(filtered, 'کود اوره')
+        self.assertNotContains(filtered, 'نهال بادام')
+
+    def test_seller_can_add_and_edit_a_product(self):
+        self.client.login(username='09121111111', password='demo1234')
+        blocked = self.client.get(reverse('seller_products'))
+        self.assertRedirects(blocked, reverse('seller_profile'))
+
+        city = City.objects.get(name='مشهد')
+        missing_pin = self.client.post(reverse('seller_profile'), {
+            'store_name': 'سرای کشاورزی رضا',
+            'store_city': city.pk,
+            'store_address': 'بازار رضا، سرای کشاورزی',
+        })
+        self.assertEqual(missing_pin.status_code, 200)
+        self.assertContains(missing_pin, 'موقعیت فروشگاه را روی نقشه مشخص کنید.')
+
+        outside = self.client.post(reverse('seller_profile'), {
+            'store_name': 'سرای کشاورزی رضا',
+            'store_city': city.pk,
+            'store_address': 'بازار رضا، سرای کشاورزی',
+            'store_latitude': '33.315200',
+            'store_longitude': '44.366100',
+        })
+        self.assertEqual(outside.status_code, 200)
+        self.assertContains(outside, 'خارج از مرزهای ایران')
+
+        saved = self.client.post(reverse('seller_profile'), {
+            'store_name': 'سرای کشاورزی رضا',
+            'store_city': city.pk,
+            'store_address': 'بازار رضا، سرای کشاورزی',
+            'store_phone': '05138887766',
+            'store_latitude': '36.297200',
+            'store_longitude': '59.606700',
+        })
+        self.assertRedirects(saved, reverse('seller_products'))
+        seller = User.objects.get(username='09121111111')
+        self.assertEqual(seller.get_role_display(), 'صاحب زمین و فروشنده')
+        self.assertEqual(seller.seller_profile.store_name, 'سرای کشاورزی رضا')
+        self.assertTrue(seller.seller_profile.has_store_location)
+        self.assertNotIn('نام', [step['label'] for step in seller.seller_profile.completion_steps()])
+        shop = self.client.get(reverse('seller_profile'))
+        self.assertNotContains(shop, 'font-semibold">نام</span>')
+        seller.name = ''
+        seller.save(update_fields=['name'])
+        self.assertTrue(User.objects.get(pk=seller.pk).seller_profile.is_profile_complete)
+
+        created = self.client.post(reverse('seller_product_new'), {
+            'name': 'سم علف‌کش',
+            'description': 'علف‌کش انتخابی برای مزرعه گندم، بطری نیم‌لیتری.',
+            'price': '96000',
+            'unit': Product.LITER,
+            'is_available': 'on',
+        })
+        self.assertRedirects(created, reverse('seller_products'))
+        product = Product.objects.get(name='سم علف‌کش', seller=seller.seller_profile)
+        self.assertContains(self.client.get(reverse('bazaar')), 'سم علف‌کش')
+
+        edited = self.client.post(reverse('seller_product_edit', args=[product.pk]), {
+            'name': 'سم علف‌کش انتخابی',
+            'description': 'علف‌کش انتخابی برای مزرعه گندم، بطری یک لیتری.',
+            'price': '120000',
+            'unit': Product.LITER,
+        })
+        self.assertRedirects(edited, reverse('seller_products'))
+        product.refresh_from_db()
+        self.assertEqual(product.name, 'سم علف‌کش انتخابی')
+        self.assertEqual(product.price, 120000)
+        self.assertFalse(product.is_available)
+        self.assertNotContains(self.client.get(reverse('bazaar')), 'سم علف‌کش انتخابی')
+        self.assertEqual(self.client.get(product.get_absolute_url()).status_code, 200)
+        self.client.logout()
+        self.assertEqual(self.client.get(product.get_absolute_url()).status_code, 404)
+
+        self.client.login(username='09125550002', password='demo1234')
+        foreign = self.client.post(reverse('seller_product_edit', args=[product.pk]), {
+            'name': 'محصول دیگران',
+            'description': 'این ویرایش نباید ذخیره شود.',
+            'price': '10',
+            'unit': Product.PIECE,
+            'is_available': 'on',
+        })
+        self.assertEqual(foreign.status_code, 404)
+        product.refresh_from_db()
+        self.assertEqual(product.name, 'سم علف‌کش انتخابی')
+
+        self.client.login(username='09121111111', password='demo1234')
+        removed = self.client.post(reverse('seller_product_edit', args=[product.pk]), {'action': 'delete'})
+        self.assertRedirects(removed, reverse('seller_products'))
+        self.assertFalse(Product.objects.filter(pk=product.pk).exists())
+
+    def test_bazaar_menu_panel_and_product_images(self):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        guest = self.client.get(reverse('bazaar'))
+        self.assertContains(guest, 'id="bazaar-btn"')
+        self.assertContains(guest, 'پنل فروشگاه')
+        self.assertContains(guest, 'ثبت فروشگاه')
+        self.assertContains(guest, 'فیلتر')
+        menu = guest.content.decode().split('id="bazaar-panel"', 1)[1].split('id="hamrah-menu"', 1)[0]
+        self.assertIn('پنل فروشگاه', menu)
+        self.assertIn('ثبت فروشگاه', menu)
+        self.assertIn('محصولات', menu)
+
+        self.client.login(username='09121111111', password='demo1234')
+        blocked = self.client.get(reverse('seller_products'))
+        self.assertRedirects(blocked, reverse('seller_profile'))
+
+        self.client.login(username='09125550002', password='demo1234')
+        panel = self.client.get(reverse('seller_products'))
+        self.assertContains(panel, 'پنل فروشگاه')
+        self.assertContains(panel, 'محصولات من')
+        self.assertContains(panel, 'ثبت محصول جدید')
+        self.assertContains(panel, 'نهال بادام')
+        self.assertContains(panel, reverse('bazaar'))
+        fresh = self.client.get(reverse('seller_product_new'))
+        self.assertRedirects(fresh, f"{reverse('seller_products')}#new-product", fetch_redirect_response=False)
+
+        buffer = BytesIO()
+        Image.new('RGB', (8, 8), (160, 90, 40)).save(buffer, format='PNG')
+        created = self.client.post(reverse('seller_product_new'), {
+            'name': 'کود مایع',
+            'description': 'کود مایع برای باغ مرکبات، بطری یک لیتری.',
+            'price': '88000',
+            'unit': Product.LITER,
+            'is_available': 'on',
+            'image': SimpleUploadedFile('fertilizer.png', buffer.getvalue(), content_type='image/png'),
+        })
+        self.assertRedirects(created, reverse('seller_products'))
+        product = Product.objects.get(name='کود مایع')
+        self.assertTrue(product.image.name.endswith('.png'))
+        listing = self.client.get(reverse('bazaar'))
+        self.assertContains(listing, product.image.url)
+        detail = self.client.get(product.get_absolute_url())
+        self.assertContains(detail, product.image.url)
+
+    def test_admin_can_list_sellers(self):
+        self.client.login(username='09124444444', password='demo1234')
+        page = self.client.get(reverse('admin_people'), {'role': 'seller'})
+        self.assertContains(page, 'فرهاد بازرگان')
+        self.assertContains(page, 'زهرا گلستان')
+        self.assertContains(page, 'فروشندگان')
+        self.assertNotContains(page, 'رضا محمدی')
+        self.assertNotContains(page, 'سامان کریمی')
+
+
+class WallFlowTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed')
+
+    def _ad(self, **kwargs):
+        data = {
+            'user': User.objects.get(username='09121111111'),
+            'category': WallCategory.objects.get(slug='crops'),
+            'city': City.objects.get(name='مشهد'),
+            'title': 'آگهی آزمایشی دیوار',
+            'description': 'توضیح کافی برای یک آگهی آزمایشی روی دیوار کشاورزی.',
+            'is_published': True,
+        }
+        data.update(kwargs)
+        return WallAd.objects.create(**data)
+
+    def test_picker_and_city_feed_match_the_board(self):
+        mashhad = City.objects.get(name='مشهد')
+        home = self.client.get(reverse('wall'))
+        self.assertRedirects(home, reverse('wall_city', args=[mashhad.pk]))
+
+        page = self.client.get(reverse('wall_city', args=[mashhad.pk]))
+        self.assertContains(page, 'گندم دیم درجه یک')
+        self.assertContains(page, 'وکیل‌آباد')
+        self.assertNotContains(page, 'نردبان')
+        self.assertContains(page, 'توافقی')
+        self.assertContains(page, 'جستجو در همهٔ آگهی‌ها')
+        self.assertContains(page, 'عکس‌دار')
+        self.assertContains(page, 'آگهی‌ها')
+        self.assertContains(page, 'دیوار من')
+        self.assertNotContains(page, 'ثبت آگهی')
+        self.assertNotContains(page, 'شهرهای پربازدید')
+        self.assertNotContains(page, 'نهال بادام پیوندی')
+        self.assertNotContains(page, 'استخدام کشاورزی')
+        self.assertNotContains(page, 'خدمات کشاورزی')
+        shell = self.client.get(reverse('home'))
+        self.assertContains(shell, 'آگهی‌ها')
+        self.assertContains(shell, 'دیوار من')
+
+    def test_filters_city_category_price_and_photo(self):
+        mashhad = City.objects.get(name='مشهد')
+        shiraz = City.objects.get(name='شیراز')
+        livestock = WallCategory.objects.get(slug='livestock')
+        self._ad(title='یونجه ارزان دامی', price=1000, district='طرقبه')
+        self._ad(title='پسته گران صادراتی', price=500000, district='کنه بیست')
+        self._ad(title='بره پرواری', price=None, category=livestock)
+        self._ad(title='پرتقال شیراز فقط', price=20000, city=shiraz)
+
+        priced = self.client.get(reverse('wall_city', args=[mashhad.pk]), {'min_price': '10000', 'q': 'پسته'})
+        self.assertContains(priced, 'پسته گران صادراتی')
+        self.assertNotContains(priced, 'یونجه ارزان دامی')
+
+        by_job = self.client.get(reverse('wall_city', args=[mashhad.pk]), {'cat': 'livestock'})
+        self.assertContains(by_job, 'بره پرواری')
+        self.assertNotContains(by_job, 'پسته گران صادراتی')
+
+        by_place = self.client.get(reverse('wall_city', args=[mashhad.pk]), {'district': 'کنه بیست'})
+        self.assertContains(by_place, 'پسته گران صادراتی')
+        self.assertNotContains(by_place, 'یونجه ارزان دامی')
+
+        other_city = self.client.get(reverse('wall_city', args=[shiraz.pk]))
+        self.assertContains(other_city, 'پرتقال شیراز فقط')
+        self.assertNotContains(other_city, 'یونجه ارزان دامی')
+
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buffer = BytesIO()
+        Image.new('RGB', (8, 8), (30, 140, 50)).save(buffer, format='PNG')
+        photo = self._ad(title='هندوانه عکس‌دار')
+        photo.image.save(
+            'melon.png',
+            SimpleUploadedFile('melon.png', buffer.getvalue(), content_type='image/png'),
+            save=True,
+        )
+        self._ad(title='خربزه بدون عکس')
+        listed = self.client.get(reverse('wall_city', args=[mashhad.pk]), {'photo': '1'})
+        self.assertContains(listed, 'هندوانه عکس‌دار')
+        self.assertContains(listed, photo.image.url)
+        self.assertNotContains(listed, 'خربزه بدون عکس')
+
+    def test_simple_account_can_post_without_a_role_profile(self):
+        guest = self.client.get(reverse('wall_new'))
+        self.assertEqual(guest.status_code, 302)
+        self.assertIn('/login/', guest['Location'])
+
+        user = User.objects.create_user(username='09129998877', password='demo1234', name='کاربر دیوار')
+        self.client.login(username='09129998877', password='demo1234')
+        city = City.objects.get(name='رشت')
+        category = WallCategory.objects.get(slug='irrigation')
+        created = self.client.post(reverse('wall_new'), {
+            'category': category.pk,
+            'city': city.pk,
+            'district': 'کوچصفهان',
+            'title': 'پمپ آب کشاورزی نو',
+            'description': 'پمپ آب دو اینچ سالم، مناسب باغ چای و مرکبات گیلان، تحویل در رشت.',
+            'price': '18500',
+            'price_note': 'هر دستگاه',
+        })
+        ad = WallAd.objects.get(title='پمپ آب کشاورزی نو')
+        self.assertRedirects(created, ad.get_absolute_url())
+        self.assertEqual(ad.user, user)
+        self.assertFalse(LandOwner.objects.filter(user=user).exists())
+        self.assertFalse(ServiceProvider.objects.filter(user=user).exists())
+        self.assertFalse(Seller.objects.filter(user=user).exists())
+
+        detail = self.client.get(ad.get_absolute_url())
+        self.assertContains(detail, '۱۸٬۵۰۰ تومان')
+        self.assertContains(detail, 'اطلاعات تماس')
+        self.assertContains(detail, '۰۹۱۲۹۹۹۸۸۷۷')
+        self.client.logout()
+        public = self.client.get(ad.get_absolute_url())
+        self.assertContains(public, 'برای دیدن شماره وارد شوید')
+        self.assertNotContains(public, '09129998877')
+        self.assertNotContains(public, '۰۹۱۲۹۹۹۸۸۷۷')
+
+        self.client.login(username='09124444444', password='demo1234')
+        blocked = self.client.get(reverse('wall_new'))
+        self.assertRedirects(blocked, reverse('admin_panel'))
+
+    def test_owner_manages_ad_and_others_cannot(self):
+        ad = self._ad(title='یونجه بسته‌بندی شده برای دام', price=12000, district='وکیل‌آباد')
+        self.client.login(username='09130000001', password='demo1234')
+        self.assertEqual(self.client.get(reverse('wall_edit', args=[ad.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse('wall_delete', args=[ad.pk])).status_code, 404)
+
+        self.client.login(username='09121111111', password='demo1234')
+        hidden = self.client.post(reverse('wall_toggle', args=[ad.pk]))
+        self.assertRedirects(hidden, reverse('wall_mine'))
+        ad.refresh_from_db()
+        self.assertFalse(ad.is_published)
+        self.client.logout()
+        self.assertEqual(self.client.get(ad.get_absolute_url()).status_code, 404)
+        self.assertNotContains(self.client.get(reverse('wall_city', args=[ad.city_id])), ad.title)
+
+        self.client.login(username='09121111111', password='demo1234')
+        self.assertContains(self.client.get(reverse('wall_mine')), ad.title)
+        removed = self.client.post(reverse('wall_delete', args=[ad.pk]))
+        self.assertRedirects(removed, reverse('wall_mine'))
+        self.assertFalse(WallAd.objects.filter(pk=ad.pk).exists())
+
+        short = self.client.post(reverse('wall_new'), {
+            'category': WallCategory.objects.get(slug='crops').pk,
+            'city': City.objects.get(name='مشهد').pk,
+            'title': 'کم',
+            'description': 'کوتاه',
+        })
+        self.assertEqual(short.status_code, 200)
+        self.assertContains(short, 'توضیحات را حداقل')
 

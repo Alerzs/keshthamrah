@@ -157,7 +157,7 @@
       </a>
     </li>
     <li>
-      <a href="{% if current_profile.role == 'farmer' %}{% url 'bookings' %}{% elif current_profile.role == 'worker' %}{% url 'worker_jobs' %}{% else %}{% url 'register' %}{% endif %}" class="flex h-full flex-col border border-line border-t-4 border-t-soil bg-sheet p-5">
+      <a href="{% if land_profile %}{% url 'bookings' %}{% elif service_profile %}{% url 'worker_jobs' %}{% else %}{% url 'register' %}{% endif %}" class="flex h-full flex-col border border-line border-t-4 border-t-soil bg-sheet p-5">
         <div class="flex items-center justify-between">
           <span class="grid h-12 w-12 place-items-center rounded-full bg-teal-50 text-soil" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M4 10h16"/><path d="M9 14.5l2 2 4-4"/></svg>
@@ -166,7 +166,7 @@
         </div>
         <h3 class="mt-4 text-xl">رزرو و هماهنگی</h3>
         <p class="mt-2 flex-1 text-sm leading-7 text-muted">سرویس‌دهنده درخواست را می‌پذیرد و برای روز مشخص‌شده هماهنگ می‌شوید.</p>
-        <span class="mt-4 text-sm font-semibold text-clay">{% if current_profile.role == 'farmer' %}سفارش‌های من{% elif current_profile.role == 'worker' %}کارهای من{% else %}ثبت‌نام{% endif %}</span>
+        <span class="mt-4 text-sm font-semibold text-clay">{% if land_profile %}درخواست‌های من{% elif service_profile %}کارهای من{% else %}ثبت‌نام{% endif %}</span>
       </a>
     </li>
     <li>
@@ -254,7 +254,7 @@
     </div>
     <div class="flex flex-col gap-2 sm:items-stretch">
       <a href="{% url 'workers' %}" class="inline-flex items-center justify-center bg-clay px-5 py-3 text-sm font-semibold text-white hover:bg-clay-dark">پیدا کردن سرویس‌دهنده</a>
-      <a href="{% url 'register' %}?role=worker" class="inline-flex items-center justify-center rounded-xl border border-white/25 px-5 py-3 text-sm font-semibold text-[#f6f1e6] hover:bg-white/10">ثبت‌نام سرویس‌دهنده</a>
+      <a href="{% url 'worker_profile' %}" class="inline-flex items-center justify-center rounded-xl border border-white/25 px-5 py-3 text-sm font-semibold text-[#f6f1e6] hover:bg-white/10">ثبت خدمت</a>
     </div>
   </div>
 </section>
