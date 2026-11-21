@@ -211,6 +211,21 @@ class RegisterForm(forms.Form):
 
 
 class AdminAccountForm(forms.Form):
+    ROLE_FARMER = 'farmer'
+    ROLE_SELLER = 'seller'
+    ROLE_WORKER = 'worker'
+    ROLE_CHOICES = (
+        (ROLE_FARMER, 'صاحب زمین'),
+        (ROLE_SELLER, 'فروشنده'),
+        (ROLE_WORKER, 'سرویس‌دهنده'),
+    )
+
+    role = forms.ChoiceField(
+        label='نوع کاربر',
+        choices=ROLE_CHOICES,
+        widget=forms.RadioSelect,
+        error_messages={'required': 'نوع کاربر را انتخاب کنید.'},
+    )
     name = forms.CharField(label='نام', max_length=150)
     username = forms.CharField(label='شماره تماس', max_length=20)
     password = forms.CharField(label='رمز عبور', widget=PasswordToggleInput)

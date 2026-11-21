@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.core.paginator import Paginator
 from django.http import Http404
+from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -560,26 +561,96 @@ def admin_people(request):
     })
 
 
+def _posted_ids(request, key):
+    return {int(item) for item in request.POST.getlist(key) if str(item).isdigit()}
+
+
 @role_required('admin')
 def admin_create_account(request):
-    form = AdminAccountForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        user = form.save()
-        password = form.cleaned_data['password']
-        try:
-            send_account_sms(user.username, password)
-        except SmsError as exc:
-            messages.warning(
-                request,
-                f'حساب {user.get_full_name()} ساخته شد، ولی پیامک ارسال نشد: {exc}',
-            )
-        else:
-            messages.success(
-                request,
-                f'حساب {user.get_full_name()} ساخته شد و نام کاربری و رمز عبور به {user.username} پیامک شد.',
-            )
-        return redirect('admin_panel')
-    return render(request, 'marketplace/admin_account.html', {'form': form})
+    posted = request.POST if request.method == 'POST' else None
+    form = AdminAccountForm(posted)
+    land_form = FarmerProfileForm(posted)
+    seller_form = SellerProfileForm(posted)
+    worker_form = WorkerSettingsForm(
+        posted,
+        initial={'accepts_jobs': True, 'experience_years': 0, 'daily_wage': 0},
+    )
+    for profile_form in (land_form, seller_form, worker_form):
+        profile_form.use_required_attribute = False
+    worker_form.fields['bio'].widget.attrs.pop('minlength', None)
+    if request.method == 'POST':
+        selected_services = set(
+            Service.objects.filter(pk__in=_posted_ids(request, 'services')).values_list('pk', flat=True)
+        )
+        selected_cities = set(
+            City.objects.filter(pk__in=_posted_ids(request, 'cities')).values_list('pk', flat=True)
+        )
+    else:
+        selected_services = set()
+        selected_cities = set()
+    if request.method == 'POST':
+        account_ok = form.is_valid()
+        role = form.cleaned_data.get('role') or request.POST.get('role', '')
+        profile_ok = False
+        if role == AdminAccountForm.ROLE_FARMER:
+            profile_ok = land_form.is_valid()
+        elif role == AdminAccountForm.ROLE_SELLER:
+            profile_ok = seller_form.is_valid()
+        elif role == AdminAccountForm.ROLE_WORKER:
+            profile_ok = worker_form.is_valid()
+            if not selected_services:
+                worker_form.add_error(None, 'حداقل یک حوزه کاری انتخاب کنید.')
+                profile_ok = False
+            if not selected_cities:
+                worker_form.add_error(None, 'حداقل یک شهر برای محل کار انتخاب کنید.')
+                profile_ok = False
+        if account_ok and profile_ok:
+            with transaction.atomic():
+                user = form.save()
+                admin = request.user if isinstance(request.user, AdminAccount) else None
+                if role == AdminAccountForm.ROLE_FARMER:
+                    land = land_form.save(commit=False)
+                    land.user = user
+                    land.created_by = admin
+                    land.save()
+                elif role == AdminAccountForm.ROLE_SELLER:
+                    seller = seller_form.save(commit=False)
+                    seller.user = user
+                    seller.created_by = admin
+                    seller.save()
+                else:
+                    provider = worker_form.save(commit=False)
+                    provider.user = user
+                    provider.created_by = admin
+                    provider.save()
+                    provider.services.set(selected_services)
+                    provider.cities.set(selected_cities)
+            password = form.cleaned_data['password']
+            try:
+                send_account_sms(user.username, password)
+            except SmsError as exc:
+                messages.warning(
+                    request,
+                    f'حساب {user.get_full_name()} ساخته شد، ولی پیامک ارسال نشد: {exc}',
+                )
+            else:
+                messages.success(
+                    request,
+                    f'حساب {user.get_full_name()} ساخته شد و نام کاربری و رمز عبور به {user.username} پیامک شد.',
+                )
+            return redirect('admin_panel')
+    return render(request, 'marketplace/admin_account.html', {
+        'form': form,
+        'land_form': land_form,
+        'seller_form': seller_form,
+        'worker_form': worker_form,
+        'categories': Category.objects.prefetch_related('services'),
+        'cities': City.objects.all(),
+        'selected_services': selected_services,
+        'selected_cities': selected_cities,
+        'city_centers': city_centers(),
+        'iran_border': iran_border(),
+    })
 
 
 @require_POST

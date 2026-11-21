@@ -357,7 +357,7 @@ class MarketplaceFlowTests(TestCase):
         page = self.client.get(reverse('farmer_profile'))
         self.assertContains(page, 'id="farm-map"')
         self.assertContains(page, '36.297200')
-        self.assertContains(page, 'farm-map.js?v=3')
+        self.assertContains(page, 'farm-map.js?v=5')
         script = (Path(__file__).resolve().parents[1] / 'static' / 'js' / 'farm-map.js').read_text(encoding='utf-8')
         self.assertLess(script.index('map.setView(start, zoom)'), script.index('if (hasPin && inIran'))
 
@@ -586,42 +586,142 @@ class MarketplaceFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/login/', response['Location'])
 
-    def test_admin_creates_a_base_account_without_profiles(self):
+    def _land_account(self, **overrides):
+        city = City.objects.get(name='مشهد')
+        data = {
+            'role': 'farmer',
+            'farm_city': city.pk,
+            'farm_address': 'جاده کلات، کیلومتر ۱۲، قطعه نمونه',
+        }
+        data.update(overrides)
+        return data
+
+    def test_admin_creates_a_profile_for_the_chosen_role(self):
         self.client.login(username='09124444444', password='demo1234')
         page = self.client.get(reverse('admin_create_account'))
         self.assertContains(page, 'افزودن حساب')
         self.assertContains(page, 'شماره تماس')
-        self.assertNotContains(page, 'مشخصات زمین')
-        self.assertNotContains(page, 'مشخصات کاری')
+        self.assertContains(page, 'نوع کاربر')
+        self.assertContains(page, 'صاحب زمین')
+        self.assertContains(page, 'فروشنده')
+        self.assertContains(page, 'سرویس‌دهنده')
+        self.assertContains(page, 'مشخصات زمین')
+        self.assertContains(page, 'مشخصات فروشگاه')
+        self.assertContains(page, 'مشخصات کاری')
 
-        created = self.client.post(reverse('admin_create_account'), {
-            'name': 'علی رضایی',
-            'username': '09125556677',
-            'password': 'workerpass',
-            'password2': 'workerpass',
-        })
+        created = self.client.post(reverse('admin_create_account'), self._land_account(
+            name='علی رضایی',
+            username='09125556677',
+            password='workerpass',
+            password2='workerpass',
+        ))
         self.assertRedirects(created, reverse('admin_panel'))
         user = User.objects.get(username='09125556677')
         self.assertEqual(user.name, 'علی رضایی')
         self.assertEqual(user.phone, '09125556677')
         self.assertTrue(user.check_password('workerpass'))
-        self.assertFalse(LandOwner.objects.filter(user=user).exists())
+        self.assertEqual(user.land_profile.farm_address, 'جاده کلات، کیلومتر ۱۲، قطعه نمونه')
+        self.assertEqual(user.land_profile.farm_city.name, 'مشهد')
+        self.assertEqual(user.land_profile.created_by.username, '09124444444')
         self.assertFalse(ServiceProvider.objects.filter(user=user).exists())
+        self.assertFalse(Seller.objects.filter(user=user).exists())
         self.client.logout()
         self.assertTrue(self.client.login(username='09125556677', password='workerpass'))
+        self.client.logout()
+
+        self.client.login(username='09124444444', password='demo1234')
+        city = City.objects.get(name='مشهد')
+        seller_created = self.client.post(reverse('admin_create_account'), {
+            'role': 'seller',
+            'name': 'نگار فروشی',
+            'username': '09125556688',
+            'password': 'sellerpass',
+            'password2': 'sellerpass',
+            'store_name': 'نهالستان نمونه',
+            'store_city': city.pk,
+            'store_address': 'خیابان کوهسنگی، بازار گل، پلاک ۱۲',
+            'store_phone': '05133334444',
+            'store_latitude': '36.297200',
+            'store_longitude': '59.606700',
+        })
+        self.assertRedirects(seller_created, reverse('admin_panel'))
+        seller = User.objects.get(username='09125556688')
+        self.assertEqual(seller.seller_profile.store_name, 'نهالستان نمونه')
+        self.assertEqual(seller.seller_profile.store_city.name, 'مشهد')
+        self.assertEqual(seller.seller_profile.store_phone, '05133334444')
+        self.assertEqual(seller.seller_profile.store_latitude, Decimal('36.297200'))
+        self.assertEqual(seller.seller_profile.created_by.username, '09124444444')
+        self.assertFalse(LandOwner.objects.filter(user=seller).exists())
+        self.assertFalse(ServiceProvider.objects.filter(user=seller).exists())
+
+        service = Service.objects.get(slug='wheat-harvest')
+        worker_created = self.client.post(reverse('admin_create_account'), {
+            'role': 'worker',
+            'name': 'رضا خدماتی',
+            'username': '09125556699',
+            'password': 'workerpass',
+            'password2': 'workerpass',
+            'bio': 'برداشت گندم در زمین‌های مشهد و حومه',
+            'experience_years': '4',
+            'daily_wage': '1500000',
+            'accepts_jobs': 'on',
+            'services': [service.pk],
+            'cities': [city.pk],
+        })
+        self.assertRedirects(worker_created, reverse('admin_panel'))
+        worker = User.objects.get(username='09125556699')
+        self.assertEqual(worker.service_profile.bio, 'برداشت گندم در زمین‌های مشهد و حومه')
+        self.assertEqual(worker.service_profile.experience_years, 4)
+        self.assertEqual(worker.service_profile.daily_wage, 1500000)
+        self.assertTrue(worker.service_profile.accepts_jobs)
+        self.assertTrue(worker.service_profile.services.filter(pk=service.pk).exists())
+        self.assertTrue(worker.service_profile.cities.filter(pk=city.pk).exists())
+        self.assertEqual(worker.service_profile.created_by.username, '09124444444')
+        self.assertFalse(LandOwner.objects.filter(user=worker).exists())
+        self.assertFalse(Seller.objects.filter(user=worker).exists())
 
     def test_admin_can_create_accounts_with_only_login_fields(self):
         self.client.login(username='09124444444', password='demo1234')
-        created = self.client.post(reverse('admin_create_account'), {
+        missing_role = self.client.post(reverse('admin_create_account'), {
             'name': 'بدون زمین',
             'username': '09121110000',
             'password': 'farmerpass',
             'farm_address': 'کوتاه',
         })
-        self.assertRedirects(created, reverse('admin_panel'))
-        farmer_user = User.objects.get(username='09121110000')
-        self.assertFalse(LandOwner.objects.filter(user=farmer_user).exists())
-        self.assertFalse(ServiceProvider.objects.filter(user=farmer_user).exists())
+        self.assertEqual(missing_role.status_code, 200)
+        self.assertContains(missing_role, 'نوع کاربر را انتخاب کنید')
+        self.assertFalse(User.objects.filter(username='09121110000').exists())
+
+        city = City.objects.get(name='مشهد')
+        short_address = self.client.post(reverse('admin_create_account'), {
+            'role': 'farmer',
+            'name': 'آدرس کوتاه',
+            'username': '09121110001',
+            'password': 'farmerpass',
+            'password2': 'farmerpass',
+            'farm_city': city.pk,
+            'farm_address': 'کوتاه',
+        })
+        self.assertEqual(short_address.status_code, 200)
+        self.assertContains(short_address, 'آدرس را دقیق‌تر بنویسید')
+        self.assertFalse(User.objects.filter(username='09121110001').exists())
+        self.assertFalse(LandOwner.objects.filter(farm_address='کوتاه').exists())
+
+        service = Service.objects.get(slug='wheat-harvest')
+        missing_city = self.client.post(reverse('admin_create_account'), {
+            'role': 'worker',
+            'name': 'بدون شهر',
+            'username': '09121110002',
+            'password': 'workerpass',
+            'password2': 'workerpass',
+            'bio': 'برداشت گندم در زمین‌های مشهد و حومه',
+            'experience_years': '2',
+            'daily_wage': '0',
+            'services': [service.pk],
+        })
+        self.assertEqual(missing_city.status_code, 200)
+        self.assertContains(missing_city, 'حداقل یک شهر برای محل کار انتخاب کنید')
+        self.assertFalse(User.objects.filter(username='09121110002').exists())
 
         mismatch = self.client.post(reverse('admin_create_account'), {
             'name': 'رمز ناهماهنگ',
@@ -815,15 +915,19 @@ class MarketplaceFlowTests(TestCase):
         }
         post.return_value.raise_for_status.return_value = None
         self.client.login(username='09124444444', password='demo1234')
+        city = City.objects.get(name='مشهد')
+        service = Service.objects.get(slug='wheat-harvest')
         response = self.client.post(reverse('admin_create_account'), {
             'role': 'worker',
             'name': 'پیامک تست',
             'username': '09126667788',
             'password': 'sms-pass-1',
-            'bio': '',
-            'experience_years': '',
-            'daily_wage': '',
-            'is_active': 'on',
+            'bio': 'برداشت گندم در زمین‌های مشهد و حومه',
+            'experience_years': '3',
+            'daily_wage': '0',
+            'accepts_jobs': 'on',
+            'services': [service.pk],
+            'cities': [city.pk],
         }, follow=True)
 
         self.assertEqual(response.status_code, 200)
@@ -847,12 +951,11 @@ class MarketplaceFlowTests(TestCase):
     @patch('marketplace.sms.requests.post')
     def test_account_is_kept_when_sms_is_not_configured(self, post):
         self.client.login(username='09124444444', password='demo1234')
-        response = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
-            'name': 'بدون پیامک',
-            'username': '09126660000',
-            'password': 'sms-pass-2',
-        }, follow=True)
+        response = self.client.post(reverse('admin_create_account'), self._land_account(
+            name='بدون پیامک',
+            username='09126660000',
+            password='sms-pass-2',
+        ), follow=True)
 
         self.assertTrue(User.objects.filter(username='09126660000').exists())
         self.assertContains(response, 'پیامک ارسال نشد')
@@ -869,12 +972,11 @@ class MarketplaceFlowTests(TestCase):
         post.return_value.json.return_value = {'RetStatus': 0, 'StrRetStatus': 'Error'}
         post.return_value.raise_for_status.return_value = None
         self.client.login(username='09124444444', password='demo1234')
-        response = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
-            'name': 'رد پیامک',
-            'username': '09126661111',
-            'password': 'sms-pass-3',
-        }, follow=True)
+        response = self.client.post(reverse('admin_create_account'), self._land_account(
+            name='رد پیامک',
+            username='09126661111',
+            password='sms-pass-3',
+        ), follow=True)
 
         self.assertTrue(User.objects.filter(username='09126661111').exists())
         self.assertContains(response, 'پیامک ارسال نشد')
@@ -895,12 +997,11 @@ class MarketplaceFlowTests(TestCase):
         }
         post.return_value.raise_for_status.return_value = None
         self.client.login(username='09124444444', password='demo1234')
-        response = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
-            'name': 'لیست سیاه',
-            'username': '09126663333',
-            'password': 'sms-pass-5',
-        }, follow=True)
+        response = self.client.post(reverse('admin_create_account'), self._land_account(
+            name='لیست سیاه',
+            username='09126663333',
+            password='sms-pass-5',
+        ), follow=True)
 
         self.assertTrue(User.objects.filter(username='09126663333').exists())
         self.assertContains(response, 'لیست سیاه')
@@ -917,12 +1018,11 @@ class MarketplaceFlowTests(TestCase):
     def test_console_key_explains_when_melipayamak_rejects_it(self, post):
         post.return_value.json.return_value = {'status': 'کلید کنسول معتبر نیست'}
         self.client.login(username='09124444444', password='demo1234')
-        response = self.client.post(reverse('admin_create_account'), {
-            'role': 'farmer',
-            'name': 'کلید کنسول',
-            'username': '09126662222',
-            'password': 'sms-pass-4',
-        }, follow=True)
+        response = self.client.post(reverse('admin_create_account'), self._land_account(
+            name='کلید کنسول',
+            username='09126662222',
+            password='sms-pass-4',
+        ), follow=True)
 
         self.assertTrue(User.objects.filter(username='09126662222').exists())
         self.assertContains(response, 'کلید کنسول معتبر نیست')
@@ -977,6 +1077,99 @@ class MarketplaceFlowTests(TestCase):
         }
         self.assertIn('رضا محمدی', searched_names)
         self.assertNotIn('سامان کریمی', searched_names)
+
+    def test_admin_can_export_role_profiles_to_excel(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        guest = self.client.get(reverse('admin:marketplace_landowner_export'))
+        self.assertEqual(guest.status_code, 302)
+        self.assertIn('/admin/login/', guest['Location'])
+
+        self.client.login(username='admin', password='demo1234')
+        cases = (
+            (
+                'admin:marketplace_landowner_changelist',
+                'admin:marketplace_landowner_export',
+                'land-owners-',
+                'شهر زمین',
+                {'q': 'سامان'},
+                'سامان کریمی',
+                'حسین یوسفی',
+            ),
+            (
+                'admin:marketplace_serviceprovider_changelist',
+                'admin:marketplace_serviceprovider_export',
+                'service-providers-',
+                'دستمزد روزانه',
+                {'q': '09130000001'},
+                'رضا محمدی',
+                'علی حسینی',
+            ),
+            (
+                'admin:marketplace_seller_changelist',
+                'admin:marketplace_seller_export',
+                'sellers-',
+                'نام فروشگاه',
+                {'q': 'فرهاد'},
+                'فرهاد بازرگان',
+                'زهرا گلستان',
+            ),
+        )
+        for changelist, export_name, filename, header, query, included, excluded in cases:
+            page = self.client.get(reverse(changelist))
+            export_url = reverse(export_name)
+            self.assertContains(page, 'خروجی اکسل')
+            self.assertContains(page, export_url)
+            response = self.client.get(export_url, query)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response['Content-Type'],
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            self.assertIn(filename, response['Content-Disposition'])
+            rows = list(load_workbook(BytesIO(response.content)).active.iter_rows(values_only=True))
+            self.assertEqual(rows[0][0], 'نام')
+            self.assertIn(header, rows[0])
+            names = {row[0] for row in rows[1:]}
+            self.assertEqual(names, {included})
+            self.assertNotIn(excluded, names)
+
+        owner = next(
+            row for row in load_workbook(BytesIO(
+                self.client.get(reverse('admin:marketplace_landowner_export'), {'q': '09121111111'}).content
+            )).active.iter_rows(min_row=2, values_only=True)
+        )
+        self.assertEqual(owner[2], '09121111111')
+        self.assertEqual(owner[9], 'بله')
+
+        provider = next(
+            row for row in load_workbook(BytesIO(
+                self.client.get(reverse('admin:marketplace_serviceprovider_export'), {'q': '09130000001'}).content
+            )).active.iter_rows(min_row=2, values_only=True)
+        )
+        self.assertEqual(provider[2], '09130000001')
+        self.assertEqual(provider[3], 980000)
+        self.assertEqual(provider[6], 86)
+        self.assertEqual(provider[7], 12)
+        self.assertEqual(provider[8], 'بله')
+        self.assertEqual(provider[9], 'بله')
+        self.assertIn('برداشت گندم و جو', provider[10])
+        self.assertIn('مشهد', provider[11])
+        self.assertIn('نیشابور', provider[11])
+
+        seller = next(
+            row for row in load_workbook(BytesIO(
+                self.client.get(reverse('admin:marketplace_seller_export'), {'q': '09125550001'}).content
+            )).active.iter_rows(min_row=2, values_only=True)
+        )
+        self.assertEqual(seller[2], '09125550001')
+        self.assertEqual(seller[3], 'بازرگانی بازرگان')
+        self.assertEqual(seller[4], 'مشهد')
+        self.assertEqual(seller[6], '05137654321')
+        self.assertEqual(seller[7], '36.297200')
+        self.assertEqual(seller[11], 'بله')
 
     def test_django_admin_shows_the_unified_account(self):
         self.client.login(username='admin', password='demo1234')

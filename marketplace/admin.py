@@ -10,6 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -42,33 +43,207 @@ def profile_export_row(user):
     )
 
 
-def profiles_workbook(profiles):
+def _yes_no(flag):
+    return 'بله' if flag else 'خیر'
+
+
+def _decimal_text(value):
+    return '' if value is None else format(value, 'f')
+
+
+def _creator_name(profile):
+    if not profile.created_by_id:
+        return ''
+    return profile.created_by.get_full_name()
+
+
+LAND_OWNER_EXPORT_HEADERS = (
+    'نام',
+    'نام کاربری',
+    'موبایل',
+    'شهر زمین',
+    'آدرس زمین',
+    'عرض جغرافیایی زمین',
+    'طول جغرافیایی زمین',
+    'ثبت‌کننده',
+    'تاریخ عضویت',
+    'فعال',
+)
+
+
+def land_owner_export_row(owner):
+    name, username, phone, joined, active = profile_export_row(owner.user)
+    return (
+        name,
+        username,
+        phone,
+        owner.farm_city.name if owner.farm_city_id else '',
+        owner.farm_address or '',
+        _decimal_text(owner.farm_latitude),
+        _decimal_text(owner.farm_longitude),
+        _creator_name(owner),
+        joined,
+        active,
+    )
+
+
+SERVICE_PROVIDER_EXPORT_HEADERS = (
+    'نام',
+    'نام کاربری',
+    'موبایل',
+    'دستمزد روزانه',
+    'امتیاز',
+    'تعداد نظر',
+    'کارهای انجام‌شده',
+    'سابقه (سال)',
+    'هویت تأیید شده',
+    'آماده دریافت کار',
+    'حوزه کاری',
+    'محل کار',
+    'درباره تجربه کاری',
+    'ثبت‌کننده',
+    'تاریخ عضویت',
+    'فعال',
+)
+
+
+def service_provider_export_row(provider):
+    name, username, phone, joined, active = profile_export_row(provider.user)
+    return (
+        name,
+        username,
+        phone,
+        provider.daily_wage,
+        str(provider.rating),
+        provider.review_count,
+        provider.jobs_done,
+        provider.experience_years,
+        _yes_no(provider.is_verified),
+        _yes_no(provider.accepts_jobs),
+        '، '.join(sorted(service.name for service in provider.services.all())),
+        '، '.join(sorted(city.name for city in provider.cities.all())),
+        provider.bio or '',
+        _creator_name(provider),
+        joined,
+        active,
+    )
+
+
+SELLER_EXPORT_HEADERS = (
+    'نام',
+    'نام کاربری',
+    'موبایل',
+    'نام فروشگاه',
+    'شهر فروشگاه',
+    'آدرس فروشگاه',
+    'شماره تماس فروشگاه',
+    'عرض جغرافیایی فروشگاه',
+    'طول جغرافیایی فروشگاه',
+    'ثبت‌کننده',
+    'تاریخ عضویت',
+    'فعال',
+)
+
+
+def seller_export_row(seller):
+    name, username, phone, joined, active = profile_export_row(seller.user)
+    return (
+        name,
+        username,
+        phone,
+        seller.store_name,
+        seller.store_city.name if seller.store_city_id else '',
+        seller.store_address or '',
+        seller.store_phone or '',
+        _decimal_text(seller.store_latitude),
+        _decimal_text(seller.store_longitude),
+        _creator_name(seller),
+        joined,
+        active,
+    )
+
+
+def excel_workbook(headers, rows, *, title, text_columns=()):
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = 'کاربران'
+    sheet.title = title
     sheet.sheet_view.rightToLeft = True
     sheet.freeze_panes = 'A2'
-    sheet.auto_filter.ref = f'A1:{get_column_letter(len(PROFILE_EXPORT_HEADERS))}1'
+    sheet.auto_filter.ref = f'A1:{get_column_letter(len(headers))}1'
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill('solid', fgColor='0F766E')
     alignment = Alignment(horizontal='right', vertical='center')
-    for column, title in enumerate(PROFILE_EXPORT_HEADERS, 1):
-        cell = sheet.cell(1, column, title)
+    for column, heading in enumerate(headers, 1):
+        cell = sheet.cell(1, column, heading)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = alignment
-    text_columns = {2, 3}
-    for row_index, profile in enumerate(profiles, 2):
-        for column, value in enumerate(profile_export_row(profile), 1):
+    for row_index, values in enumerate(rows, 2):
+        for column, value in enumerate(values, 1):
             cell = sheet.cell(row_index, column, value)
             cell.alignment = alignment
             if column in text_columns:
                 cell.number_format = '@'
-    for column in range(1, len(PROFILE_EXPORT_HEADERS) + 1):
-        sheet.column_dimensions[get_column_letter(column)].width = 22
+    for column in range(1, len(headers) + 1):
+        sheet.column_dimensions[get_column_letter(column)].width = 24
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
+
+
+class ExcelExportMixin:
+    change_list_template = 'admin/marketplace/excel_change_list.html'
+    export_filename = 'export'
+    export_sheet_title = 'خروجی'
+    export_headers = ()
+    export_text_columns = frozenset()
+
+    def get_urls(self):
+        from django.urls import path
+
+        info = self.opts.app_label, self.opts.model_name
+        custom = [
+            path(
+                'export/',
+                self.admin_site.admin_view(self.export_excel),
+                name='%s_%s_export' % info,
+            ),
+        ]
+        return custom + super().get_urls()
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = dict(extra_context or {})
+        info = self.opts.app_label, self.opts.model_name
+        extra_context['export_url'] = reverse('admin:%s_%s_export' % info)
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def export_queryset(self, request):
+        return self.get_changelist_instance(request).get_queryset(request)
+
+    def export_row(self, obj):
+        raise NotImplementedError
+
+    def export_excel(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        info = self.opts.app_label, self.opts.model_name
+        try:
+            queryset = self.export_queryset(request)
+        except IncorrectLookupParameters:
+            messages.error(request, 'فیلتر خروجی معتبر نیست.')
+            return redirect('admin:%s_%s_changelist' % info)
+        stamp = to_jalali(timezone.localdate(), 'Y-m-d').translate(str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789'))
+        response = HttpResponse(
+            excel_workbook(
+                self.export_headers,
+                (self.export_row(obj) for obj in queryset),
+                title=self.export_sheet_title,
+                text_columns=self.export_text_columns,
+            ),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="{self.export_filename}-{stamp or "export"}.xlsx"'
+        return response
 
 
 @admin.register(City)
@@ -130,13 +305,20 @@ class SiteUserChangeForm(UserChangeForm):
 
 
 @admin.register(LandOwner)
-class LandOwnerAdmin(admin.ModelAdmin):
+class LandOwnerAdmin(ExcelExportMixin, admin.ModelAdmin):
+    export_filename = 'land-owners'
+    export_sheet_title = 'صاحبان زمین'
+    export_headers = LAND_OWNER_EXPORT_HEADERS
+    export_text_columns = frozenset({2, 3, 6, 7})
     list_display = ('user', 'farm_city', 'farm_address', 'created_by')
     list_select_related = ('user', 'farm_city', 'created_by')
     search_fields = ('user__name', 'user__username', 'farm_address')
     list_filter = ('farm_city',)
     autocomplete_fields = ('user', 'farm_city', 'created_by')
     fields = ('user', 'farm_city', 'farm_address', 'farm_latitude', 'farm_longitude', 'created_by')
+
+    def export_row(self, owner):
+        return land_owner_export_row(owner)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'created_by':
@@ -145,7 +327,11 @@ class LandOwnerAdmin(admin.ModelAdmin):
 
 
 @admin.register(Seller)
-class SellerAdmin(admin.ModelAdmin):
+class SellerAdmin(ExcelExportMixin, admin.ModelAdmin):
+    export_filename = 'sellers'
+    export_sheet_title = 'فروشندگان'
+    export_headers = SELLER_EXPORT_HEADERS
+    export_text_columns = frozenset({2, 3, 7, 8, 9})
     list_display = ('store_name', 'user', 'store_city', 'store_address', 'store_phone', 'created_by')
     list_select_related = ('user', 'store_city', 'created_by')
     search_fields = ('store_name', 'user__name', 'user__username', 'store_address', 'store_phone')
@@ -155,6 +341,9 @@ class SellerAdmin(admin.ModelAdmin):
         'user', 'store_name', 'store_city', 'store_address', 'store_phone',
         'store_latitude', 'store_longitude', 'created_by',
     )
+
+    def export_row(self, seller):
+        return seller_export_row(seller)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'created_by':
@@ -172,7 +361,11 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(ServiceProvider)
-class ServiceProviderAdmin(admin.ModelAdmin):
+class ServiceProviderAdmin(ExcelExportMixin, admin.ModelAdmin):
+    export_filename = 'service-providers'
+    export_sheet_title = 'سرویس‌دهندگان'
+    export_headers = SERVICE_PROVIDER_EXPORT_HEADERS
+    export_text_columns = frozenset({2, 3})
     list_display = ('user', 'daily_wage', 'rating', 'jobs_done', 'is_verified', 'accepts_jobs', 'created_by')
     list_select_related = ('user', 'created_by')
     list_filter = ('is_verified', 'accepts_jobs', 'cities')
@@ -183,6 +376,12 @@ class ServiceProviderAdmin(admin.ModelAdmin):
         'user', 'bio', 'experience_years', 'daily_wage', 'rating', 'review_count', 'jobs_done',
         'is_verified', 'accepts_jobs', 'services', 'cities', 'created_by',
     )
+
+    def export_queryset(self, request):
+        return super().export_queryset(request).prefetch_related('services', 'cities')
+
+    def export_row(self, provider):
+        return service_provider_export_row(provider)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'created_by':
@@ -236,10 +435,13 @@ class AdminAccountAdmin(admin.ModelAdmin):
 
 
 @admin.register(User)
-class UserAdmin(DjangoUserAdmin):
+class UserAdmin(ExcelExportMixin, DjangoUserAdmin):
+    export_filename = 'profiles'
+    export_sheet_title = 'کاربران'
+    export_headers = PROFILE_EXPORT_HEADERS
+    export_text_columns = frozenset({2, 3})
     form = SiteUserChangeForm
     add_form = SiteUserCreationForm
-    change_list_template = 'admin/marketplace/user/change_list.html'
     fieldsets = (
         (None, {'fields': ('username', 'name', 'password')}),
     )
@@ -257,34 +459,8 @@ class UserAdmin(DjangoUserAdmin):
     filter_horizontal = ()
     actions = ()
 
-    def get_urls(self):
-        from django.urls import path
-
-        info = self.opts.app_label, self.opts.model_name
-        custom = [
-            path(
-                'export/',
-                self.admin_site.admin_view(self.export_excel),
-                name='%s_%s_export' % info,
-            ),
-        ]
-        return custom + super().get_urls()
-
-    def export_excel(self, request):
-        if not self.has_view_permission(request):
-            raise PermissionDenied
-        try:
-            profiles = self.get_changelist_instance(request).get_queryset(request)
-        except IncorrectLookupParameters:
-            messages.error(request, 'فیلتر خروجی معتبر نیست.')
-            return redirect('admin:marketplace_user_changelist')
-        stamp = to_jalali(timezone.localdate(), 'Y-m-d').translate(str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789'))
-        response = HttpResponse(
-            profiles_workbook(profiles),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        response['Content-Disposition'] = f'attachment; filename="profiles-{stamp or "export"}.xlsx"'
-        return response
+    def export_row(self, user):
+        return profile_export_row(user)
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
